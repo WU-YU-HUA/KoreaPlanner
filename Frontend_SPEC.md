@@ -1,0 +1,171 @@
+# Korea Planner — Frontend SPEC v0.1
+
+## 規格權威與範圍
+
+本文件是前端實作的 source of truth；資料庫以同目錄 `DATABASE_SPEC.md` 為準。兩份文件採用最新的 Trip / Schedule 模型，取代舊版 itinerary_items、displayName、note 與拆開的地點欄位。不得自行新增 backend、資料表或未列出的功能。
+
+目標：私人韓國旅行規劃 MVP。使用者建立旅程、依日期管理行程、搜尋並確認 Kakao 地點，或手動定位，再直接透過 Supabase Repository 讀寫資料。
+
+技術：Vite、React、TypeScript、React Router、Supabase JavaScript client、Kakao Maps JavaScript SDK。不要加入 Redux / Zustand。正式資料來源為 Supabase；mock 僅用於測試或隔離 UI 開發，不得默默切換成 localStorage 正式儲存。
+
+## Domain models
+
+```ts
+export interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface Place extends Coordinates {
+  provider: 'kakao' | 'manual';
+  placeId?: string;
+  name: string;
+  address?: string;
+  roadAddress?: string;
+  category?: string;
+}
+
+export interface Trip {
+  id: string;
+  name: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD, inclusive
+  createdAt: string; // ISO timestamp
+  updatedAt: string;
+}
+
+export interface Schedule {
+  id: string;
+  tripId: string;
+  name: string; // 使用者設定的中文／自訂名稱
+  comment?: string;
+  date: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm, 24-hour
+  endTime?: string;
+  place: Place; // normalized object, never raw Kakao response
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateTripInput = Pick<Trip, 'name' | 'startDate' | 'endDate'>;
+export type UpdateTripInput = CreateTripInput;
+export type CreateScheduleInput = Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>;
+// 完整表單替換；未填的 optional 欄位必須在 DB 清成 NULL。
+export type UpdateScheduleInput = Omit<CreateScheduleInput, 'tripId'>;
+```
+
+所有座標使用 latitude / longitude。Kakao 的 x / y 只存在於 adapter，x 轉 longitude、y 轉 latitude，字串轉有限數字。placeId 可省略，手動地點不需 Kakao ID。Schedule.name 和 Place.name 必須分開保存；若相同，UI 可只顯示一次。
+
+## Routes 與畫面
+
+| Route | 畫面 | 必要功能 |
+|---|---|---|
+| `/` | Trip List | 列出旅程、建立、編輯、刪除旅程 |
+| `/trips/:tripId` | Trip Detail | 名稱、起訖日、含首尾的每日日期入口 |
+| `/trips/:tripId/days/:date` | Daily Planner | 日期、行程列表、新增、編輯、刪除、地圖連結 |
+
+GitHub Pages 使用 HashRouter，確保重新整理深層 route 能載入；Vite base 依 repository path 設定。不存在的 trip、無效日期或超出旅程範圍的 route 顯示可理解的錯誤與返回入口。
+
+Trip 表單：名稱、開始日期、結束日期。日期按日曆日生成，避免用 UTC timestamp 轉換造成跨日。列表按 startDate 降冪，同日以 createdAt、id 作穩定排序。刪除旅程前確認並告知所有底下行程會一起刪除；只呼叫 deleteTrip，cascade 由 DB 處理。
+
+修改旅程日期時先讀取其所有 Schedule。若有既有行程超出新日期範圍，MVP 拒絕修改並指出受影響日期，不自動刪除／搬移行程。
+
+Daily Planner 按 startTime 升冪，沒有 startTime 的排最後；再按 createdAt、id。新增表單預設 route 日期，編輯可改至同旅程其他日期。表單包含地點搜尋字串、行程名稱、optional start/end time、optional comment、地點確認區。刪除單一 Schedule 前確認，不影響 Trip。
+
+## 地點搜尋與確認
+
+```ts
+export interface PlaceSearchService {
+  search(query: string): Promise<Place[]>;
+}
+export interface TranslationService {
+  translateToKorean(query: string): Promise<string>;
+}
+```
+
+1. 對 trim 後原始 query 呼叫 Kakao search。
+2. 若有結果，直接顯示，不自動翻譯。
+3. 只有成功搜尋但結果為空，才呼叫注入的 TranslationService，再用韓文搜尋。
+4. 網路／SDK／權限錯誤不是 empty result，顯示錯誤與重試，不自動翻譯。
+5. Translation provider 尚未指定：保留 interface 與 injection point，未配置時明確顯示「尚未設定翻譯服務」，允許改用韓文搜尋或手動定位；不要假造翻譯或寫死 provider。
+
+每次成功搜尋預選第一筆，列表與地圖 marker 同步。選其他結果時 map center 跟著更新。新搜尋須清除舊的 confirmed place；正在搜尋時禁用確認，忽略過期 request 的結果。搜尋結果不得自動加入 Schedule，必須由使用者明確確認。
+
+錯誤地點可以選其他結果、重新搜尋或切換手動定位。手動模式使用可互動 Kakao map，點擊或移動中心選擇座標，顯示所選位置並要求填入地點名稱；確認後建立 provider='manual' 的 Place。沒有 placeId 也必須可儲存。SDK 不可用時顯示錯誤／重試；可提供有驗證的 latitude/longitude 輸入作為替代定位方式，但不得顯示假的地圖。
+
+```ts
+export interface KakaoMapProps {
+  center: Coordinates;
+  marker?: Coordinates;
+  onCenterChange?: (coordinates: Coordinates) => void;
+  interactive?: boolean;
+}
+```
+
+KakaoMap 是純地圖 component。SDK script 集中載入，只有一個共享 loading promise，處理 loading / loaded / error 與重試，卸載 component 時清理 listener。adapter normalize place_id、place_name、address_name、road_address_name、category_name、x、y，UI 不得接收 raw response。
+
+Kakao 外部連結由 utility 產生，不存 DB：有 placeId 開 Kakao Place；無 ID 使用座標開 Kakao Map，名稱需 URL encode。實作時查核 Kakao 官方支援的網址格式。外部新分頁使用 rel='noopener noreferrer'。
+
+## Repository 與資料映射
+
+```ts
+export interface TripRepository {
+  getTrips(): Promise<Trip[]>;
+  getTrip(id: string): Promise<Trip | null>;
+  createTrip(input: CreateTripInput): Promise<Trip>;
+  updateTrip(id: string, input: UpdateTripInput): Promise<Trip>;
+  deleteTrip(id: string): Promise<void>;
+}
+export interface ScheduleRepository {
+  getSchedulesByTrip(tripId: string): Promise<Schedule[]>;
+  getSchedulesByDate(tripId: string, date: string): Promise<Schedule[]>;
+  createSchedule(input: CreateScheduleInput): Promise<Schedule>;
+  updateSchedule(id: string, input: UpdateScheduleInput): Promise<Schedule>;
+  deleteSchedule(id: string): Promise<void>;
+}
+```
+
+實作 SupabaseTripRepository / SupabaseScheduleRepository，統一 export `repositories = { trip, schedule }`。Page 呼叫 repository，禁止在 React component 寫 supabase.from(...)。Repository 負責 snake_case ↔ camelCase、NULL ↔ undefined、TIME ↔ HH:mm、Place JSON 型別驗證與錯誤轉換。update optional 空白欄位明確寫 NULL，不能因 undefined 省略而保留舊值。JSONB keys 採用上述 Place camelCase，勿再轉 snake_case。寫入失敗不可假裝成功；更新／刪除找不到目標也需處理。
+
+## Validation 與時間衝突
+
+- Trip name trim 後非空；日期必填且為有效 YYYY-MM-DD；endDate >= startDate。
+- Schedule name trim 後非空；搜尋模式 query 必填；手動模式不要求搜尋字串；Place 必须經確認且 name 非空。
+- Schedule date 必須位於 Trip 日期範圍。
+- 時間 optional，有值必須 HH:mm。兩者存在時 endTime > startTime；MVP 不支援跨午夜時間區間。
+- latitude / longitude 必須有限數值且分別在 [-90,90] / [-180,180]。
+- 同日兩筆都有完整起訖時，用半開區間判斷重疊：a.start < b.end && b.start < a.end；編輯排除自己。端點相接不算衝突。不完整時間不推測區間。
+- 時間衝突只顯示 warning，仍可儲存。
+
+Page-specific state 用 useState；日期生成、排序、過濾等 derived state 用 useMemo 或純函式，不重複存一份 state。不建立 global modal manager。
+
+## UX、可及性與環境設定
+
+所有讀寫呈現 loading / empty / error / success。儲存或刪除中禁用重複操作，失敗保留使用者表單內容。Modal 支援 Escape、focus trap、初始 focus 與關閉後 focus 還原；buttons 用 button、欄位有 label、互動卡片支援鍵盤、錯誤有文字，不能只靠顏色。
+
+```env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_KAKAO_JAVASCRIPT_KEY=
+```
+
+提供 .env.example、不提交實際設定。VITE_ 皆公開，絕不可放 service_role 或 translation secret。Kakao key 使用 JavaScript key，開發與正式 origin 須在 Kakao 設定允許 domain。缺少設定應提供明確訊息。
+
+資料庫 migration 預設開 RLS、不提供匿名寫入 policy。Auth／授權尚未定案，agent 不得自行新增 ownership 欄位、公開全表 policy 或 Auth UI；真實 CRUD 若被 RLS 阻擋需指出配置前提。公開部署前必須取得明確授權規格並配置有效 policy，不能以關閉 RLS 解決。
+
+## 開發順序與驗收
+
+依序完成 models/routes → Supabase repositories → Trip CRUD/日期生成 → Schedule CRUD/排序/衝突 warning → Kakao SDK/search → selection/map sync/confirmation → manual picker → injectable translation fallback。DATABASE_SPEC.md 已定義 schema，勿再等待舊版 DB SPEC 或沿用 itinerary_items。
+
+驗收必須涵蓋：
+
+1. 建立旅程後首頁可見，重新載入資料仍存在；日期含首尾、跨月／跨年正確。
+2. 行程可新增、改名、改日期／時間／備註、清空 optional 欄位及刪除。
+3. 未填時間排最後；重疊僅 warning，不阻擋保存。
+4. 原查詢有結果不翻譯；空結果才 fallback；error 不當作空结果。
+5. 第一筆預選、切換結果同步地圖；確認前不能寫入；重搜取消舊確認。
+6. 無 Kakao ID 的手動地點可以確認、儲存及開地圖。
+7. 刪 Schedule 保留 Trip；刪 Trip 由 DB cascade 清除其 Schedule。
+8. Repository mapping、日期工具、搜尋 fallback 用有意義的測試驗證；typecheck 和 production build 通過。
+
+Out of scope：額外 backend、AI 排行程、路線／交通計算、drag and drop、預算、圖片、社交分享、多人協作、其他地圖 provider，以及未定案的 Auth UI。
