@@ -12,15 +12,24 @@ export default function BillingPanel({ trip, currentUserId, currentUserName, can
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Expense | null | undefined>(undefined);
   const [deletingId, setDeletingId] = useState('');
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const memberIds = useMemo(() => [...new Set([trip.ownerId, ...trip.coWorkerIds])], [trip]);
-  const members = useMemo(() => memberIds.map((id) => ({ id, name: id === currentUserId && currentUserName
-    ? currentUserName : `使用者 ${id.slice(0, 8)}` })), [memberIds, currentUserId, currentUserName]);
+  const members = useMemo(() => memberIds.map((id) => ({ id, name: memberNames[id]
+    ?? (id === currentUserId && currentUserName ? currentUserName : `使用者 ${id.slice(0, 8)}`) })),
+  [memberIds, memberNames, currentUserId, currentUserName]);
   const settlement = useMemo(() => calculateSettlement(expenses, memberIds), [expenses, memberIds]);
   const total = expenses.reduce((sum, expense) => sum + (parseMoneyToMinorUnits(expense.totalAmount) ?? 0), 0);
 
   async function load() {
     setLoading(true); setError('');
-    try { setExpenses(await repositories.expense.getExpensesByTrip(trip.id)); }
+    try {
+      const [nextExpenses, names] = await Promise.all([
+        repositories.expense.getExpensesByTrip(trip.id),
+        repositories.expense.getTripMemberDisplayNames(trip.id),
+      ]);
+      setExpenses(nextExpenses);
+      setMemberNames(Object.fromEntries(names.map((member: { userId: string; displayName: string }) => [member.userId, member.displayName])));
+    }
     catch (loadError) { setError(loadError instanceof Error ? loadError.message : '讀取共同支出失敗。'); }
     finally { setLoading(false); }
   }

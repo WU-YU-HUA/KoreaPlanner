@@ -243,6 +243,15 @@ export class SupabaseExpenseRepository implements ExpenseRepository {
     return (data ?? []).map((row) => mapExpense(row as Record<string, unknown>));
   }
 
+  async getTripMemberDisplayNames(tripId: string): Promise<Array<{ userId: string; displayName: string }>> {
+    const { data, error } = await this.client.rpc('get_trip_member_display_names', { p_trip_id: tripId });
+    throwIfError(error);
+    return (data ?? []).map((row: Record<string, unknown>) => ({
+      userId: String(row.user_id),
+      displayName: String(row.display_name),
+    }));
+  }
+
   async saveExpense(input: SaveExpenseInput) {
     const { data, error } = await this.client.rpc('save_trip_expense', {
       p_trip_id: input.tripId,

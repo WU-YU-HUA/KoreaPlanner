@@ -92,6 +92,7 @@ export interface ScheduleRepository {
 
 export interface ExpenseRepository {
   getExpensesByTrip(tripId: string): Promise<Expense[]>;
+  getTripMemberDisplayNames(tripId: string): Promise<Array<{ userId: string; displayName: string }>>;
   saveExpense(input: SaveExpenseInput): Promise<string>;
   deleteExpense(id: string): Promise<void>;
 }
