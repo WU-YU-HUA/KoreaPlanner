@@ -1,4 +1,4 @@
-# Korea Planner — Frontend SPEC v0.1
+# Korea Planner — Frontend SPEC v0.2
 
 ## 規格權威與範圍
 
@@ -28,6 +28,8 @@ export interface Place extends Coordinates {
 export interface Trip {
   id: string;
   name: string;
+  ownerId: string;
+  coWorkerIds: string[];
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD, inclusive
   createdAt: string; // ISO timestamp
@@ -47,7 +49,7 @@ export interface Schedule {
   updatedAt: string;
 }
 
-export type CreateTripInput = Pick<Trip, 'name' | 'startDate' | 'endDate'>;
+export type CreateTripInput = Pick<Trip, 'name' | 'startDate' | 'endDate' | 'coWorkerIds'>;
 export type UpdateTripInput = CreateTripInput;
 export type CreateScheduleInput = Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>;
 // 完整表單替換；未填的 optional 欄位必須在 DB 清成 NULL。
@@ -60,13 +62,14 @@ export type UpdateScheduleInput = Omit<CreateScheduleInput, 'tripId'>;
 
 | Route | 畫面 | 必要功能 |
 |---|---|---|
+| `/login` | Google Login | Google 登入、取消／失敗處理、訪客入口 |
 | `/` | Trip List | 列出旅程、建立、編輯、刪除旅程 |
 | `/trips/:tripId` | Trip Detail | 名稱、起訖日、含首尾的每日日期入口 |
 | `/trips/:tripId/days/:date` | Daily Planner | 日期、行程列表、新增、編輯、刪除、地圖連結 |
 
 GitHub Pages 使用 HashRouter，確保重新整理深層 route 能載入；Vite base 依 repository path 設定。不存在的 trip、無效日期或超出旅程範圍的 route 顯示可理解的錯誤與返回入口。
 
-Trip 表單：名稱、開始日期、結束日期。日期按日曆日生成，避免用 UTC timestamp 轉換造成跨日。列表按 startDate 降冪，同日以 createdAt、id 作穩定排序。刪除旅程前確認並告知所有底下行程會一起刪除；只呼叫 deleteTrip，cascade 由 DB 處理。
+Trip 表單：名稱、開始日期、結束日期、多位 Co-Worker（Gmail 搜尋、加入、移除）。日期按日曆日生成，避免用 UTC timestamp 轉換造成跨日。列表按 startDate 降冪，同日以 createdAt、id 作穩定排序。刪除旅程前確認並告知所有底下行程會一起刪除；只呼叫 deleteTrip，cascade 由 DB 處理。
 
 修改旅程日期時先讀取其所有 Schedule。若有既有行程超出新日期範圍，MVP 拒絕修改並指出受影響日期，不自動刪除／搬移行程。
 
@@ -151,11 +154,11 @@ VITE_KAKAO_JAVASCRIPT_KEY=
 
 提供 .env.example、不提交實際設定。VITE_ 皆公開，絕不可放 service_role 或 translation secret。Kakao key 使用 JavaScript key，開發與正式 origin 須在 Kakao 設定允許 domain。缺少設定應提供明確訊息。
 
-資料庫 migration 預設開 RLS、不提供匿名寫入 policy。Auth／授權尚未定案，agent 不得自行新增 ownership 欄位、公開全表 policy 或 Auth UI；真實 CRUD 若被 RLS 阻擋需指出配置前提。公開部署前必須取得明確授權規格並配置有效 policy，不能以關閉 RLS 解決。
+Google Auth 與 Owner/Co-Worker 已納入 MVP。依 DATABASE_SPEC.md 配置 RLS/grants；訪客只讀，登入者只能寫入自己擁有權限的資料，不關閉 RLS。
 
 ## 開發順序與驗收
 
-依序完成 models/routes → Supabase repositories → Trip CRUD/日期生成 → Schedule CRUD/排序/衝突 warning → Kakao SDK/search → selection/map sync/confirmation → manual picker → injectable translation fallback。DATABASE_SPEC.md 已定義 schema，勿再等待舊版 DB SPEC 或沿用 itinerary_items。
+依序完成 Google Auth/session → models/routes → Supabase repositories/RLS/Gmail lookup → Trip CRUD/日期生成 → Schedule CRUD/排序/衝突 warning → Kakao SDK/search → selection/map sync/confirmation → manual picker → injectable translation fallback。DATABASE_SPEC.md 已定義 schema，勿再等待舊版 DB SPEC 或沿用 itinerary_items。
 
 驗收必須涵蓋：
 
@@ -168,4 +171,58 @@ VITE_KAKAO_JAVASCRIPT_KEY=
 7. 刪 Schedule 保留 Trip；刪 Trip 由 DB cascade 清除其 Schedule。
 8. Repository mapping、日期工具、搜尋 fallback 用有意義的測試驗證；typecheck 和 production build 通過。
 
-Out of scope：額外 backend、AI 排行程、路線／交通計算、drag and drop、預算、圖片、社交分享、多人協作、其他地圖 provider，以及未定案的 Auth UI。
+Out of scope：額外 backend、AI 排行程、路線／交通計算、drag and drop、預算、圖片、社交分享、其他地圖 provider、待接受邀請／邀請信、Owner 轉移、其他登入方式。Google Auth 與下述旅程協作屬 MVP 範圍。
+
+
+## Google 登入流程
+
+首次進入且沒有 session 時先顯示 /login，提供「使用 Google 登入」與「先瀏覽」入口；訪客仍可讀全部 Trip/Schedule。新增 Trip 或進行寫入時需登入。登入成功導回首頁或原先安全站內 route，登入失敗／取消可重試。
+
+AuthService 集中使用 Supabase Auth signInWithOAuth({provider: 'google'})、getSession、onAuthStateChange、signOut；管理 initializing/signedOut/signedIn/error，卸載清理 subscription。重整保留 session；登出回 read-only。Google 登入不代表自動取得別人的旅程寫權限。
+
+Supabase Dashboard 啟用 Google Provider，Google Console 設定 OAuth Client、Supabase Auth callback URL；Client Secret 僅放 Supabase Dashboard。設定本地／正式 Site URL 與 Redirect URLs。GitHub Pages redirectTo 使用含 repository path 的 app base URL，勿用 hash route 當 OAuth callback。啟動時先處理 OAuth callback，再初始化 HashRouter，測試 token/code callback、refresh、取消及 session 過期。
+
+使用 Supabase 內建 auth.users，不另建 User/profiles table。前端目前使用者由 Auth API 取得，不能直接查 auth.users 或使用 admin/service_role key。
+
+## Owner / Co-Worker 權限
+
+| 身分（相對於目前 Trip） | 讀全部資料 | 建立自己的 Trip | 更新／刪除目前 Trip | 新增／更新／刪除目前 Schedule |
+|---|---|---|---|---|
+| 訪客 | 是 | 否 | 否 | 否 |
+| 已登入的一般使用者 | 是 | 是 | 否 | 否 |
+| Co-Worker | 是 | 是 | 否 | 是 |
+| Owner | 是 | 是 | 是 | 是 |
+
+建立 Trip 者自動為 Owner；ownerId 不由表單提交。Owner 可更新 Trip 名稱／日期、管理協作者、刪除 Trip，也可管理 Schedule。Co-Worker 只能管理該 Trip 的 Schedule，不能更新／刪 Trip，不能更改 Owner 或協作者。角色是每個 Trip 各自判斷。
+
+由 session.user.id 與 Trip.ownerId/coWorkerIds 派生 canManageTrip/canManageSchedule，隱藏不允許的操作；資料庫 RLS 必須同樣強制限制，不能只隱藏按鈕。若權限被移除或 session 過期，失敗時保留表單並刷新 Trip/session，轉 read-only。
+
+## 新建 Trip 的 Co-Worker 流程
+
+1. 登入後開建立表單，填名稱、起訖日期。
+2. 輸入完整 @gmail.com 地址並按搜尋；trim、lowercase、驗證格式，僅精確比對，不模糊搜尋或列出全部用戶。不要自行移除 Gmail 的點或 +tag。
+3. UserDirectoryService 呼叫 lookup_google_user RPC。建立模式不帶 tripId；編輯模式帶 tripId，由 DB 限制只有該 Trip Owner 可查。
+4. 查到已驗證、曾用 Google 登入的帳號，顯示 email，按「加入」放入待儲存名單；支援多位、移除、防重複，Owner 不需加入自己。
+5. 查無資料顯示「找不到此帳號，請對方先用 Google 登入一次，再重新搜尋。」不自動建立 User、不寄信、不儲存待邀請 email。網路／權限錯誤不能當成查無結果。
+6. 加入／移除先只改表單 state；提交時以一次 Trip INSERT 儲存 name/dates/coWorkerIds，owner_id 由 DB auth.uid() 自動生成。失敗保留表單，不能產生部分完成旅程。
+7. Owner 編輯 Trip 可修改整份 coWorkerIds；一次 UPDATE 提交。移除 commit 後，對方新的 Schedule 寫請求必須拒絕。
+
+```ts
+export interface CoWorkerCandidate { id: string; email: string }
+export interface UserDirectoryService {
+  lookupGoogleUser(email: string, tripId?: string): Promise<CoWorkerCandidate | null>;
+}
+```
+
+查詢由 service 封裝 RPC；component 不直接呼叫 Supabase。Trip 儲存 UUID，不儲存 Gmail 清單。所有訪客可看到協作者人數；MVP 編輯既有名單可顯示 UUID 並移除，不為显示 email 新增公開 users API。
+
+## v0.2 驗收與維運
+
+- 首次 Google 登入成功、session 重整保存、登出變成 read-only；訪客可瀏覽全部資料。
+- 新建 Trip 自動填 Owner，多位已登入協作者可同時儲存。
+- Gmail 查不到顯示先登入，已有帳號可加入，錯誤可重試。
+- Co-Worker 可 Schedule CRUD，但直接 API 更新／刪除 Trip 或更改協作者也必須遭拒絕。
+- Owner 可 Trip CRUD、Schedule CRUD；一般登入者不能寫他人資料。
+- ownerId 和 Schedule.tripId 不可被改動；協作者移除後立即對新請求生效。
+- 原版地圖／日期／時間／cascade 驗收繼續適用；RLS 使用真正各角色 session 測，不只用管理者 SQL Editor。
+- GitHub Actions 保活依 DATABASE_SPEC.md，使用外部 cron，不用前端 setInterval；不承諾免費方案永不暫停。
