@@ -2,9 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   CreateScheduleInput,
   CreateTripInput,
+  Expense,
+  ExpenseRepository,
   Place,
   Schedule,
   ScheduleRepository,
+  SaveExpenseInput,
   Trip,
   TripRepository,
   UpdateScheduleInput,
@@ -85,6 +88,33 @@ function mapSchedule(row: Record<string, unknown>): Schedule {
     place: parsePlace(row.place),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function amountString(value: unknown, field: string) {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`資料庫欄位 ${field} 格式錯誤。`);
+  }
+  return String(value);
+}
+
+function mapExpense(row: Record<string, unknown>): Expense {
+  const rawSplits = Array.isArray(row.expense_splits) ? row.expense_splits : [];
+  return {
+    id: String(row.id),
+    tripId: String(row.trip_id),
+    description: String(row.description),
+    paidBy: String(row.paid_by),
+    payerDisplayName: String(row.payer_display_name),
+    totalAmount: amountString(row.total_amount, 'total_amount'),
+    createdBy: String(row.created_by),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    splits: rawSplits.map((value) => {
+      const split = value as Record<string, unknown>;
+      return { userId: String(split.user_id), userDisplayName: String(split.user_display_name),
+        amount: amountString(split.amount, 'amount') };
+    }),
   };
 }
 
@@ -202,11 +232,45 @@ export class SupabaseScheduleRepository implements ScheduleRepository {
   }
 }
 
+export class SupabaseExpenseRepository implements ExpenseRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async getExpensesByTrip(tripId: string) {
+    const { data, error } = await this.client.from('expenses')
+      .select('*, expense_splits(user_id, user_display_name, amount)')
+      .eq('trip_id', tripId).order('created_at', { ascending: false });
+    throwIfError(error);
+    return (data ?? []).map((row) => mapExpense(row as Record<string, unknown>));
+  }
+
+  async saveExpense(input: SaveExpenseInput) {
+    const { data, error } = await this.client.rpc('save_trip_expense', {
+      p_trip_id: input.tripId,
+      p_expense_id: input.expenseId ?? null,
+      p_description: input.description.trim(),
+      p_paid_by: input.paidBy,
+      p_total_amount: input.totalAmount,
+      p_splits: input.splits.map((split) => ({ userId: split.userId, amount: Number(split.amount) })),
+    });
+    throwIfError(error);
+    if (typeof data !== 'string') throw new Error('儲存支出後未取得支出 ID。');
+    return data;
+  }
+
+  async deleteExpense(id: string) {
+    const { error } = await this.client.rpc('delete_trip_expense', { p_expense_id: id });
+    throwIfError(error);
+  }
+}
+
 export const repositories = {
   get trip() {
     return new SupabaseTripRepository(requireSupabase());
   },
   get schedule() {
     return new SupabaseScheduleRepository(requireSupabase());
+  },
+  get expense() {
+    return new SupabaseExpenseRepository(requireSupabase());
   },
 };

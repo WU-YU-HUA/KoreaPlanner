@@ -46,6 +46,34 @@ export interface CoWorkerCandidate {
   email: string;
 }
 
+export interface ExpenseSplit {
+  userId: string;
+  userDisplayName: string;
+  amount: string;
+}
+
+export interface Expense {
+  id: string;
+  tripId: string;
+  description: string;
+  paidBy: string;
+  payerDisplayName: string;
+  totalAmount: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  splits: ExpenseSplit[];
+}
+
+export interface SaveExpenseInput {
+  tripId: string;
+  expenseId?: string;
+  description: string;
+  paidBy: string;
+  totalAmount: string;
+  splits: Array<Pick<ExpenseSplit, 'userId' | 'amount'>>;
+}
+
 export interface TripRepository {
   getTrips(): Promise<Trip[]>;
   getTrip(id: string): Promise<Trip | null>;
@@ -60,6 +88,12 @@ export interface ScheduleRepository {
   createSchedule(input: CreateScheduleInput): Promise<Schedule>;
   updateSchedule(id: string, input: UpdateScheduleInput): Promise<Schedule>;
   deleteSchedule(id: string): Promise<void>;
+}
+
+export interface ExpenseRepository {
+  getExpensesByTrip(tripId: string): Promise<Expense[]>;
+  saveExpense(input: SaveExpenseInput): Promise<string>;
+  deleteExpense(id: string): Promise<void>;
 }
 
 export interface UserDirectoryService {
