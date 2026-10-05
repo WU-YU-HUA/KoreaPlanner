@@ -356,3 +356,9 @@ jobs:
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 
 本次產出為 SPEC，不代表已配置 Google OAuth、執行遠端 migrations 或啟用 GitHub Actions。
+
+## Implementation checkpoint (2026-10-05)
+
+- [x] 已建立全新專案 schema migration 與 v0.2 grants/RLS/triggers/lookup RPC migration，僅為本機 migration files。
+- [ ] 尚未套用任何 Supabase 專案；待隔離 DB 執行 migration 並以 anon、Owner、Co-Worker、一般使用者 session 完成 RLS 驗收。
+- [ ] GitHub Actions keepalive 未設定，依本次範圍暫緩。

@@ -226,3 +226,11 @@ export interface UserDirectoryService {
 - ownerId 和 Schedule.tripId 不可被改動；協作者移除後立即對新請求生效。
 - 原版地圖／日期／時間／cascade 驗收繼續適用；RLS 使用真正各角色 session 測，不只用管理者 SQL Editor。
 - GitHub Actions 保活依 DATABASE_SPEC.md，使用外部 cron，不用前端 setInterval；不承諾免費方案永不暫停。
+
+## Implementation checkpoint (2026-10-05)
+
+- [x] 建立 Vite + React + TypeScript、HashRouter 與 `/login`、`/`、Trip route anchors。
+- [x] Supabase client、Google OAuth sign-in/out、PKCE callback/session 初始化與持久化 wiring。
+- [x] 顯示登入者 email，提供登入中、callback/auth 錯誤及登出狀態。
+- [ ] 手動完成 Google 登入、callback、重新整理保持登入與登出驗收；目前瀏覽器停在 Google 登入頁等待確認。
+- [ ] Trip、Schedule、Co-Worker 與 Kakao UI/工作流；等待登入驗收後續作。

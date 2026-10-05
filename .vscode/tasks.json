@@ -1,0 +1,193 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Korea Planner: Install dependencies",
+			"type": "shell",
+			"command": "npm.cmd",
+			"args": [
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Node runtime availability",
+			"type": "shell",
+			"command": "where.exe",
+			"args": [
+				"node"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check user-level Node installer",
+			"type": "shell",
+			"command": "where.exe",
+			"args": [
+				"winget"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install Node.js LTS (current user)",
+			"type": "shell",
+			"command": "winget",
+			"args": [
+				"install",
+				"--id",
+				"OpenJS.NodeJS.LTS",
+				"--scope",
+				"user",
+				"--silent",
+				"--accept-package-agreements",
+				"--accept-source-agreements"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Korea Planner: Verify Node runtime",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--version"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Locate current-user Node installation",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"dir /s /b \"%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\*NodeJS*\\node.exe\" \"%LOCALAPPDATA%\\Programs\\nodejs\\node.exe\""
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Find Node executable path",
+			"type": "shell",
+			"command": "where.exe",
+			"args": [
+				"/r",
+				"C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages",
+				"node.exe"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Find npm executable path",
+			"type": "shell",
+			"command": "where.exe",
+			"args": [
+				"/r",
+				"C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe",
+				"npm.cmd"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install Planner npm dependencies",
+			"type": "shell",
+			"command": "C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64\\npm.cmd",
+			"args": [
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Node with task-local PATH",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"node",
+				"--version"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install Planner dependencies with Node",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"npm.cmd",
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Korea Planner: Typecheck",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"npm.cmd",
+				"run",
+				"typecheck"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Planner typecheck after auth fixes",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"npm.cmd",
+				"run",
+				"typecheck"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Korea Planner: Production build",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"npm.cmd",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Korea Planner: Local dev server",
+			"type": "shell",
+			"command": "set",
+			"args": [
+				"PATH=C:\\Users\\harry_wu\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v24.19.0-win-x64;%PATH%",
+				"&&",
+				"npm.cmd",
+				"run",
+				"dev",
+				"--",
+				"--host",
+				"127.0.0.1"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
