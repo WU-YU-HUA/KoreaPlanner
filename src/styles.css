@@ -201,7 +201,8 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 .schedule-copy h2 { margin: 0 0 8px; color: var(--ink); font-size: 18px; font-weight: 650; }
 .schedule-place, .schedule-comment { margin: 4px 0; color: #566158; font-size: 14px; line-height: 1.6; }
 .schedule-comment { white-space: pre-wrap; }
-.map-link { display: inline-block; margin-top: 8px; color: var(--forest); font-size: 12px; text-underline-offset: 3px; }
+.map-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; }
+.map-link { display: inline-block; color: var(--forest); font-size: 12px; text-underline-offset: 3px; }
 .modal { width: min(100% - 32px, 540px); max-height: min(90vh, 900px); padding: 0; overflow: auto; border: 1px solid #b9c2b9; border-radius: 4px; background: #faf9f5; color: var(--ink); box-shadow: 0 24px 80px rgb(21 38 29 / 25%); }
 .modal-wide { width: min(100% - 32px, 760px); }
 .modal::backdrop { background: rgb(19 32 25 / 55%); }

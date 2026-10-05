@@ -236,6 +236,7 @@ export interface UserDirectoryService {
 - [x] Trip、Schedule、Co-Worker 與 Kakao UI/工作流程式已實作。
 - [x] 首頁提供「所有旅程 / 我的旅程」tabs，各有獨立搜尋欄。
 - [x] Trip Detail 日期顯示 `yyyy.MM.dd(weekday)`；修正 React StrictMode 下 Schedule dialog 被 cleanup 誤關。
+- [x] Schedule 提供 Kakao 與 Naver Map 外部連結；Naver web link 僅以 longitude/latitude 設定地圖中心，不用 Place 名稱搜尋。
 - [ ] Kakao 本機 Places 搜尋需將 `http://localhost:5173` 加入 Kakao JavaScript SDK 網域；目前已確認未通過 CORS。
 - [x] GitHub Pages workflow、default branch push/手動部署、Secrets build injection 與 `/KoreaPlanner/` Vite base 已設定。
 - [x] 使用者已套用 schema/access-control migrations，`public.trips` schema cache 錯誤已清除。

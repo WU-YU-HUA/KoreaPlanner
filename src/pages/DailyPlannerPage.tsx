@@ -5,6 +5,7 @@ import type { CreateScheduleInput, Schedule, Trip, UpdateScheduleInput } from '.
 import { canManageSchedule } from '../domain/permissions';
 import { formatDate, isValidDate, sortSchedules } from '../domain/validation';
 import { getKakaoMapUrl } from '../services/kakaoLinks';
+import { getNaverMapUrl } from '../services/naverMapLinks';
 import { repositories } from '../services/repositories';
 import ScheduleFormDialog from '../components/ScheduleFormDialog';
 
@@ -101,7 +102,10 @@ export default function DailyPlannerPage() {
                 <h2>{schedule.name}</h2>
                 <p className="schedule-place">{schedule.place.name}</p>
                 {schedule.comment && <p className="schedule-comment">{schedule.comment}</p>}
-                <a href={getKakaoMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">在 Kakao 地圖開啟 ↗</a>
+                <div className="map-links">
+                  <a href={getKakaoMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Kakao ↗</a>
+                  <a href={getNaverMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Naver ↗</a>
+                </div>
               </div>
               {scheduleEditor && <div className="schedule-actions">
                 <button type="button" className="icon-button" aria-label={`編輯 ${schedule.name}`} onClick={() => {
