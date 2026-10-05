@@ -4,7 +4,7 @@
 
 本文件是前端實作的 source of truth；資料庫以同目錄 `DATABASE_SPEC.md` 為準。兩份文件採用最新的 Trip / Schedule 模型，取代舊版 itinerary_items、displayName、note 與拆開的地點欄位。不得自行新增 backend、資料表或未列出的功能。
 
-目標：私人韓國旅行規劃 MVP。使用者建立旅程、依日期管理行程、搜尋並確認 Kakao 地點，或手動定位，再直接透過 Supabase Repository 讀寫資料。
+目標：私人韓國旅行規劃 MVP。使用者建立旅程、依日期管理行程、搜尋並確認 Kakao 地點，或貼上 Google Maps 完整網址解析座標，再直接透過 Supabase Repository 讀寫資料。
 
 技術：Vite、React、TypeScript、React Router、Supabase JavaScript client、Kakao Maps JavaScript SDK。不要加入 Redux / Zustand。正式資料來源為 Supabase；mock 僅用於測試或隔離 UI 開發，不得默默切換成 localStorage 正式儲存。
 
@@ -90,11 +90,11 @@ export interface TranslationService {
 2. 若有結果，直接顯示，不自動翻譯。
 3. 只有成功搜尋但結果為空，才呼叫注入的 TranslationService，再用韓文搜尋。
 4. 網路／SDK／權限錯誤不是 empty result，顯示錯誤與重試，不自動翻譯。
-5. Translation provider 尚未指定：保留 interface 與 injection point，未配置時明確顯示「尚未設定翻譯服務」，允許改用韓文搜尋或手動定位；不要假造翻譯或寫死 provider。
+5. Translation provider 尚未指定：保留 interface 與 injection point，未配置時明確顯示「尚未設定翻譯服務」，允許改用韓文搜尋或 Google Maps URL 座標輸入；不要假造翻譯或寫死 provider。
 
 每次成功搜尋預選第一筆，列表與地圖 marker 同步。選其他結果時 map center 跟著更新。新搜尋須清除舊的 confirmed place；正在搜尋時禁用確認，忽略過期 request 的結果。搜尋結果不得自動加入 Schedule，必須由使用者明確確認。
 
-錯誤地點可以選其他結果、重新搜尋或切換手動定位。手動模式使用可互動 Kakao map，點擊或移動中心選擇座標，顯示所選位置並要求填入地點名稱；確認後建立 provider='manual' 的 Place。沒有 placeId 也必須可儲存。SDK 不可用時顯示錯誤／重試；可提供有驗證的 latitude/longitude 輸入作為替代定位方式，但不得顯示假的地圖。
+錯誤地點可以選其他結果、重新搜尋或切換 Google Maps。Kakao Places keyword 零結果時，再嘗試 Kakao 地址 Geocoder。Google Maps 模式只解析使用者貼上的 Google Maps URL 座標或完整 Plus Code，不呼叫 Google API、不保存 URL/Google Place 資料；需填入地點名稱並確認後建立 provider='manual' 的 Place。完整 URL 支援 `@lat,lng`、`q=lat,lng`、`!3dlat!4dlng` 與 Plus Code；不含座標的短網址須明確提示不可解析。沒有 placeId 也必須可儲存。SDK 不可用時顯示錯誤／重試，不得顯示假的地圖。
 
 ```ts
 export interface KakaoMapProps {
@@ -133,7 +133,7 @@ export interface ScheduleRepository {
 ## Validation 與時間衝突
 
 - Trip name trim 後非空；日期必填且為有效 YYYY-MM-DD；endDate >= startDate。
-- Schedule name trim 後非空；搜尋模式 query 必填；手動模式不要求搜尋字串；Place 必须經確認且 name 非空。
+- Schedule name trim 後非空；Kakao 搜尋模式 query 必填；Google Maps 模式須成功解析座標、Place 必須經確認且 name 非空。
 - Schedule date 必須位於 Trip 日期範圍。
 - 時間 optional，有值必須 HH:mm。兩者存在時 endTime > startTime；MVP 不支援跨午夜時間區間。
 - latitude / longitude 必須有限數值且分別在 [-90,90] / [-180,180]。
@@ -237,6 +237,8 @@ export interface UserDirectoryService {
 - [x] 首頁提供「所有旅程 / 我的旅程」tabs，各有獨立搜尋欄。
 - [x] Trip Detail 日期顯示 `yyyy.MM.dd(weekday)`；修正 React StrictMode 下 Schedule dialog 被 cleanup 誤關。
 - [x] Schedule 提供 Kakao 與 Naver Map 外部連結；Naver web link 僅以 longitude/latitude 設定地圖中心，不用 Place 名稱搜尋。
+- [x] PlacePicker 提供 Google Maps 完整 URL/Plus Code 座標解析與名稱確認；短網址和無座標 URL 會明確拒絕。
+- [x] Kakao keyword 零結果時嘗試 Kakao 地址 geocoder。
 - [ ] Kakao 本機 Places 搜尋需將 `http://localhost:5173` 加入 Kakao JavaScript SDK 網域；目前已確認未通過 CORS。
 - [x] GitHub Pages workflow、default branch push/手動部署、Secrets build injection 與 `/KoreaPlanner/` Vite base 已設定。
 - [x] 使用者已套用 schema/access-control migrations，`public.trips` schema cache 錯誤已清除。

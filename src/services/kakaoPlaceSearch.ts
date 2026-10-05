@@ -12,7 +12,31 @@ export class KakaoPlaceSearchService implements PlaceSearchService {
     return new Promise((resolve, reject) => {
       new sdk.maps.services.Places().keywordSearch(query.trim(), (records, status) => {
         if (status === sdk.maps.services.Status.ZERO_RESULT) {
-          resolve([]);
+          new sdk.maps.services.Geocoder().addressSearch(query.trim(), (addresses, addressStatus) => {
+            if (addressStatus === sdk.maps.services.Status.ZERO_RESULT) {
+              resolve([]);
+              return;
+            }
+            if (addressStatus !== sdk.maps.services.Status.OK) {
+              reject(new Error('Kakao 地址搜尋失敗，請確認網路、key 與網域設定後重試。'));
+              return;
+            }
+            resolve(addresses.flatMap((address) => {
+              const longitude = Number(address.x);
+              const latitude = Number(address.y);
+              if (!address.address_name?.trim() || !Number.isFinite(latitude)
+                  || !Number.isFinite(longitude) || latitude < -90 || latitude > 90
+                  || longitude < -180 || longitude > 180) return [];
+              return [{
+                provider: 'kakao' as const,
+                name: address.road_address?.address_name?.trim() || address.address_name.trim(),
+                latitude,
+                longitude,
+                address: address.address_name.trim(),
+                roadAddress: address.road_address?.address_name?.trim() || undefined,
+              }];
+            }));
+          });
           return;
         }
         if (status !== sdk.maps.services.Status.OK) {

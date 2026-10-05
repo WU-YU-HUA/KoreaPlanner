@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import type { Coordinates, Place } from '../domain/models';
 import { isValidCoordinates } from '../domain/validation';
+import { parseGoogleMapsUrl } from '../services/googleMapsUrl';
 import { kakaoPlaceSearchService } from '../services/kakaoPlaceSearch';
 import { searchWithTranslationFallback } from '../services/placeSearch';
 import KakaoMap from './KakaoMap';
 
-type PlaceMode = 'search' | 'manual';
+type PlaceMode = 'search' | 'googleMaps';
 
 interface PlacePickerProps {
   value: Place | null;
@@ -17,14 +18,16 @@ const SEOUL: Coordinates = { latitude: 37.5665, longitude: 126.978 };
 
 export default function PlacePicker({ value, onConfirm, onSearchStateChange }: PlacePickerProps) {
   const initialCoordinates = value ?? SEOUL;
-  const [mode, setMode] = useState<PlaceMode>(value?.provider === 'manual' ? 'manual' : 'search');
+  const [mode, setMode] = useState<PlaceMode>(value?.provider === 'manual' ? 'googleMaps' : 'search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
   const [center, setCenter] = useState<Coordinates>(initialCoordinates);
-  const [manualName, setManualName] = useState(value?.provider === 'manual' ? value.name : '');
-  const [latitude, setLatitude] = useState(String(initialCoordinates.latitude));
-  const [longitude, setLongitude] = useState(String(initialCoordinates.longitude));
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
+  const [googlePlaceName, setGooglePlaceName] = useState(value?.provider === 'manual' ? value.name : '');
+  const [googleCoordinates, setGoogleCoordinates] = useState<Coordinates | null>(
+    value?.provider === 'manual' ? { latitude: value.latitude, longitude: value.longitude } : null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
@@ -81,28 +84,48 @@ export default function PlacePicker({ value, onConfirm, onSearchStateChange }: P
     onConfirm(null);
   }
 
-  function updateManualCoordinates(next: Coordinates) {
-    setCenter(next);
-    setLatitude(String(next.latitude));
-    setLongitude(String(next.longitude));
-    onConfirm(null);
-    setHint('');
+  function placeKey(place: Place) {
+    return place.placeId ?? `${place.provider}:${place.latitude},${place.longitude}:${place.name}`;
   }
 
-  function confirmManual() {
-    const coordinates = { latitude: Number(latitude), longitude: Number(longitude) };
-    if (!manualName.trim()) {
-      setError('請輸入手動地點名稱。');
+  function isSelected(place: Place) {
+    if (!selected) return false;
+    if (place.placeId && selected.placeId) return place.placeId === selected.placeId;
+    return place.latitude === selected.latitude && place.longitude === selected.longitude;
+  }
+
+  function parseGoogleLocation() {
+    try {
+      const coordinates = parseGoogleMapsUrl(googleMapsUrl);
+      setGoogleCoordinates(coordinates);
+      setCenter(coordinates);
+      onConfirm(null);
+      setError('');
+      setHint('已讀取座標。確認地點名稱後，才會加入行程。');
+    } catch (parseError) {
+      setGoogleCoordinates(null);
+      onConfirm(null);
+      setError(parseError instanceof Error ? parseError.message : '無法讀取 Google Maps 座標。');
+      setHint('');
+    }
+  }
+
+  function confirmGoogleLocation() {
+    if (!googleCoordinates) {
+      setError('請先貼上 Google Maps 完整網址並讀取座標。');
       return;
     }
-    if (!isValidCoordinates(coordinates)) {
-      setError('請輸入有效的 latitude / longitude 座標。');
+    if (!googlePlaceName.trim()) {
+      setError('請輸入地點名稱。');
+      return;
+    }
+    if (!isValidCoordinates(googleCoordinates)) {
+      setError('Google Maps 網址中的座標超出有效範圍。');
       return;
     }
     setError('');
-    onConfirm({ provider: 'manual', name: manualName.trim(), ...coordinates });
-    setCenter(coordinates);
-    setHint('已確認手動地點。');
+    onConfirm({ provider: 'manual', name: googlePlaceName.trim(), ...googleCoordinates });
+    setHint('已確認 Google Maps 座標地點。');
   }
 
   function confirmSearchResult() {
@@ -116,13 +139,12 @@ export default function PlacePicker({ value, onConfirm, onSearchStateChange }: P
       <legend>地點確認</legend>
       <div className="segmented-control" role="group" aria-label="地點選擇方式">
         <button type="button" aria-pressed={mode === 'search'} onClick={() => changeMode('search')}>搜尋地點</button>
-        <button type="button" aria-pressed={mode === 'manual'} onClick={() => changeMode('manual')}>手動定位</button>
+        <button type="button" aria-pressed={mode === 'googleMaps'} onClick={() => changeMode('googleMaps')}>Google Maps</button>
       </div>
       <KakaoMap
         center={center}
-        marker={mode === 'manual' ? center : selected ?? undefined}
-        interactive={mode === 'manual'}
-        onCenterChange={updateManualCoordinates}
+        marker={mode === 'googleMaps' ? googleCoordinates ?? (value?.provider === 'manual' ? value : undefined) : selected ?? undefined}
+        interactive={false}
       />
       {mode === 'search' ? (
         <div className="place-search-panel">
@@ -150,11 +172,11 @@ export default function PlacePicker({ value, onConfirm, onSearchStateChange }: P
           {results.length > 0 && (
             <ul className="place-results" aria-label="地點搜尋結果">
               {results.map((place) => (
-                <li key={place.placeId}>
+                <li key={placeKey(place)}>
                   <button
                     type="button"
-                    className={`place-result${selected?.placeId === place.placeId ? ' is-selected' : ''}`}
-                    aria-pressed={selected?.placeId === place.placeId}
+                    className={`place-result${isSelected(place) ? ' is-selected' : ''}`}
+                    aria-pressed={isSelected(place)}
                     onClick={() => selectPlace(place)}
                   >
                     <strong>{place.name}</strong>
@@ -171,24 +193,30 @@ export default function PlacePicker({ value, onConfirm, onSearchStateChange }: P
         </div>
       ) : (
         <div className="manual-place-panel">
-          <label>地點名稱<input value={manualName} onChange={(event) => {
-            setManualName(event.target.value);
+          <label>Google Maps 網址<input
+            type="url"
+            value={googleMapsUrl}
+            onChange={(event) => {
+              setGoogleMapsUrl(event.target.value);
+              setGoogleCoordinates(null);
+              onConfirm(null);
+              setError('');
+              setHint('');
+            }}
+            placeholder="https://www.google.com/maps/..."
+          /></label>
+          <button type="button" className="button button-secondary" onClick={parseGoogleLocation} disabled={!googleMapsUrl.trim()}>
+            讀取座標
+          </button>
+          {googleCoordinates && <p className="selected-place">座標：{googleCoordinates.latitude}, {googleCoordinates.longitude}</p>}
+          <label>地點名稱<input value={googlePlaceName} onChange={(event) => {
+            setGooglePlaceName(event.target.value);
             onConfirm(null);
             setHint('');
-          }} placeholder="輸入地點名稱" /></label>
-          <div className="field-grid">
-            <label>Latitude<input inputMode="decimal" value={latitude} onChange={(event) => {
-              setLatitude(event.target.value);
-              onConfirm(null);
-              setHint('');
-            }} /></label>
-            <label>Longitude<input inputMode="decimal" value={longitude} onChange={(event) => {
-              setLongitude(event.target.value);
-              onConfirm(null);
-              setHint('');
-            }} /></label>
-          </div>
-          <button type="button" className="button button-primary" onClick={confirmManual}>確認手動地點</button>
+          }} placeholder="輸入行程中要顯示的地點名稱" /></label>
+          <button type="button" className="button button-primary" onClick={confirmGoogleLocation} disabled={!googleCoordinates || !googlePlaceName.trim()}>
+            確認地點
+          </button>
         </div>
       )}
       {(error || hint) && <p className={error ? 'field-message error-message' : 'field-message'} role={error ? 'alert' : 'status'}>{error || hint}</p>}

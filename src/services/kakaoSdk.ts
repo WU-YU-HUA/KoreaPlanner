@@ -24,8 +24,19 @@ export interface KakaoPlaceRecord {
   y: string;
 }
 
+export interface KakaoAddressRecord {
+  address_name: string;
+  x: string;
+  y: string;
+  road_address?: { address_name: string } | null;
+}
+
 interface KakaoPlaces {
   keywordSearch(query: string, callback: (records: KakaoPlaceRecord[], status: string) => void): void;
+}
+
+interface KakaoGeocoder {
+  addressSearch(query: string, callback: (records: KakaoAddressRecord[], status: string) => void): void;
 }
 
 export interface KakaoSdk {
@@ -40,6 +51,7 @@ export interface KakaoSdk {
     load(callback: () => void): void;
     services: {
       Places: new () => KakaoPlaces;
+      Geocoder: new () => KakaoGeocoder;
       Status: { OK: string; ZERO_RESULT: string };
     };
   };

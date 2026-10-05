@@ -35,3 +35,5 @@ Workflow `.github/workflows/deploy-pages.yml` 會在預設分支 push 時部署�
 此 repository 的 Vite base path 是 `/KoreaPlanner/`。Supabase Auth Redirect URLs 需允許實際 Pages origin 加上 `/KoreaPlanner/`；Kakao Developers 的 JavaScript SDK 網域需加入 Pages origin。Build-time `VITE_` 值會公開在前端 bundle，只能使用 Supabase anon/publishable key 和 Kakao JavaScript key，不能放 service_role、OAuth client secret 或其他私密金鑰。
 
 本機 Vite 預設 origin 為 `http://localhost:5173`；請將此 origin（不含 `/KoreaPlanner/` path）加入 Kakao Developers 的 JavaScript SDK 網域。若用 `127.0.0.1` 開啟，該 origin 也需另外加入。
+
+Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plus Code，不呼叫 Google API，也不儲存 Google Maps URL/Place 資料。支援含 `@latitude,longitude`、`q=latitude,longitude`、`!3dlatitude!4dlongitude` 或 Plus Code 的完整網址；`maps.app.goo.gl` 等短網址不含座標時無法在純前端解析，請改貼 Google Maps 網址列中的完整網址。Kakao keyword 搜尋零結果時，會再使用 Kakao Maps SDK 的 address geocoder 查詢地址。
