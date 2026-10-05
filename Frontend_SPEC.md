@@ -232,8 +232,11 @@ export interface UserDirectoryService {
 - [x] 建立 Vite + React + TypeScript、HashRouter 與 `/login`、`/`、Trip route anchors。
 - [x] Supabase client、Google OAuth sign-in/out、PKCE callback/session 初始化與持久化 wiring。
 - [x] 顯示登入者 email，提供登入中、callback/auth 錯誤及登出狀態。
-- [ ] 手動完成 Google 登入、callback、重新整理保持登入與登出驗收；目前瀏覽器停在 Google 登入頁等待確認。
+- [x] Google 登入、callback、重新整理保持登入與登出已由使用者手動確認。
 - [x] Trip、Schedule、Co-Worker 與 Kakao UI/工作流程式已實作。
 - [x] 首頁提供「所有旅程 / 我的旅程」tabs，各有獨立搜尋欄。
+- [x] Trip Detail 日期顯示 `yyyy.MM.dd(weekday)`；修正 React StrictMode 下 Schedule dialog 被 cleanup 誤關。
+- [ ] Kakao 本機 Places 搜尋需將 `http://localhost:5173` 加入 Kakao JavaScript SDK 網域；目前已確認未通過 CORS。
 - [x] GitHub Pages workflow、default branch push/手動部署、Secrets build injection 與 `/KoreaPlanner/` Vite base 已設定。
-- [ ] 遠端 migrations、Owner/Co-Worker/一般使用者/訪客 DB 驗收與實際 Pages 部署尚未執行；依需求留待手動操作。
+- [x] 使用者已套用 schema/access-control migrations，`public.trips` schema cache 錯誤已清除。
+- [ ] Owner/Co-Worker/一般使用者/訪客 DB 權限驗收與實際 Pages 部署仍待執行。

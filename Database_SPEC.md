@@ -359,6 +359,6 @@ jobs:
 
 ## Implementation checkpoint (2026-10-05)
 
-- [x] 已建立全新專案 schema migration 與 v0.2 grants/RLS/triggers/lookup RPC migration，僅為本機 migration files。
-- [ ] 尚未套用任何 Supabase 專案；待隔離 DB 執行 migration 並以 anon、Owner、Co-Worker、一般使用者 session 完成 RLS 驗收。
+- [x] 已建立全新專案 schema migration 與 v0.2 grants/RLS/triggers/lookup RPC migration；使用者已確認兩份 migration 套用成功且 schema cache 錯誤已清除。
+- [ ] 尚待使用 anon、Owner、Co-Worker、一般使用者 session 完成 RLS 權限驗收。
 - [ ] GitHub Actions keepalive 未設定，依本次範圍暫緩。

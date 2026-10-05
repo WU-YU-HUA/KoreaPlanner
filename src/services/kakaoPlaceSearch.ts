@@ -16,7 +16,7 @@ export class KakaoPlaceSearchService implements PlaceSearchService {
           return;
         }
         if (status !== sdk.maps.services.Status.OK) {
-          reject(new Error('Kakao 地點搜尋失敗，請確認網路、key 與網域設定後重試。'));
+          reject(new Error('Kakao 地點搜尋失敗。請在 Kakao Developers 的 JavaScript SDK 網域加入目前網站 origin（本機例如 http://localhost:5173），再重試。'));
           return;
         }
         resolve(records.flatMap((record) => {

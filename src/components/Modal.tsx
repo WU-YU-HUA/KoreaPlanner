@@ -20,7 +20,14 @@ export default function Modal({ title, onClose, children, wide = false }: ModalP
   }, []);
 
   return (
-    <dialog ref={dialogRef} className={`modal${wide ? ' modal-wide' : ''}`} onClose={onClose}>
+    <dialog
+      ref={dialogRef}
+      className={`modal${wide ? ' modal-wide' : ''}`}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+    >
       <div className="modal-heading">
         <h2>{title}</h2>
         <button type="button" className="icon-button" aria-label="關閉視窗" onClick={onClose}>×</button>

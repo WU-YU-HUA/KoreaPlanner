@@ -103,6 +103,7 @@ export default function ScheduleFormDialog({ trip, initialDate, schedule, schedu
             setQuery(nextQuery);
           }}
         />
+        {!place && <p className="field-message" role="status">請先搜尋並確認一個地點，或切換至手動定位後確認座標，才能儲存行程。</p>}
         {conflicts.length > 0 && <p className="conflict-warning" role="status">時段與「{conflicts.map((item) => item.name).join('」、「')}」重疊；仍可儲存。</p>}
         {error && <p className="notice notice-error" role="alert">{error}</p>}
         <div className="modal-actions">

@@ -35,6 +35,13 @@ export function formatDate(value: string, options: Intl.DateTimeFormatOptions = 
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+export function formatTripDay(value: string): string {
+  if (!isValidDate(value)) return value;
+  const [year, month, day] = value.split('-');
+  const weekday = ['日', '一', '二', '三', '四', '五', '六'][new Date(`${value}T00:00:00Z`).getUTCDay()];
+  return `${year}.${month}.${day}(${weekday})`;
+}
+
 export function validateTripFields(name: string, startDate: string, endDate: string): string | null {
   if (!name.trim()) return '請輸入旅程名稱。';
   if (!isValidDate(startDate) || !isValidDate(endDate)) return '請輸入有效的開始與結束日期。';

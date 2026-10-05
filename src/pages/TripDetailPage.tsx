@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../app/authContext';
 import type { CreateTripInput, Trip } from '../domain/models';
 import { canManageSchedule, canManageTrip } from '../domain/permissions';
-import { formatDate, getTripDates } from '../domain/validation';
+import { formatDate, formatTripDay, getTripDates } from '../domain/validation';
 import { repositories } from '../services/repositories';
 import TripFormDialog from '../components/TripFormDialog';
 
@@ -73,7 +73,7 @@ export default function TripDetailPage() {
             <li key={date}>
               <Link to={`/trips/${trip.id}/days/${date}`}>
                 <span className="day-number">{String(index + 1).padStart(2, '0')}</span>
-                <span>{formatDate(date, { year: 'numeric' })}</span>
+                <span>{formatTripDay(date)}</span>
                 <span className="day-arrow" aria-hidden="true">→</span>
               </Link>
             </li>

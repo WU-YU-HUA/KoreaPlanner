@@ -87,6 +87,7 @@ export default function DailyPlannerPage() {
         }}>＋ 新增行程</button>}
       </div>
       {isGuest && <p className="read-only-note">訪客模式：可瀏覽行程，登入並取得旅程權限後才能修改。</p>}
+      {!isGuest && !scheduleEditor && <p className="read-only-note">目前登入帳號不是此旅程的 Owner 或 Co-Worker，無法新增或修改行程。</p>}
       {error && <p className="notice notice-error" role="alert">{error}</p>}
       {daySchedules.length === 0 ? (
         <section className="empty-state compact-empty"><span className="empty-index">NO SCHEDULES</span><h2>這天還沒有行程</h2></section>
