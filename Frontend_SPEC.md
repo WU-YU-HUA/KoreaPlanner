@@ -233,4 +233,6 @@ export interface UserDirectoryService {
 - [x] Supabase client、Google OAuth sign-in/out、PKCE callback/session 初始化與持久化 wiring。
 - [x] 顯示登入者 email，提供登入中、callback/auth 錯誤及登出狀態。
 - [ ] 手動完成 Google 登入、callback、重新整理保持登入與登出驗收；目前瀏覽器停在 Google 登入頁等待確認。
-- [ ] Trip、Schedule、Co-Worker 與 Kakao UI/工作流；等待登入驗收後續作。
+- [x] Trip、Schedule、Co-Worker 與 Kakao UI/工作流程式已實作。
+- [x] GitHub Pages workflow、default branch push/手動部署、Secrets build injection 與 `/KoreaPlanner/` Vite base 已設定。
+- [ ] 遠端 migrations、Owner/Co-Worker/一般使用者/訪客 DB 驗收與實際 Pages 部署尚未執行；依需求留待手動操作。

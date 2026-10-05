@@ -11,6 +11,7 @@ class AuthService {
   private snapshot: AuthSnapshot = { status: 'initializing', session: null };
   private listeners = new Set<(snapshot: AuthSnapshot) => void>();
   private subscription: Subscription | null = null;
+  private initializationTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
   private lifecycle = 0;
   private revision = 0;
@@ -28,6 +29,8 @@ class AuthService {
       if (!this.listeners.size) {
         this.subscription?.unsubscribe();
         this.subscription = null;
+        if (this.initializationTimer) clearTimeout(this.initializationTimer);
+        this.initializationTimer = null;
         this.started = false;
         this.lifecycle += 1;
       }
@@ -59,6 +62,15 @@ class AuthService {
     this.started = true;
     const lifecycle = ++this.lifecycle;
     const revisionBeforeGetSession = this.revision;
+    this.initializationTimer = setTimeout(() => {
+      if (lifecycle === this.lifecycle && this.snapshot.status === 'initializing') {
+        this.setSnapshot({
+          status: 'error',
+          session: null,
+          error: '登入狀態確認逾時。請檢查網路與 Supabase 設定後重試，或先以訪客模式瀏覽。',
+        });
+      }
+    }, 10_000);
     const { data: authData } = supabase.auth.onAuthStateChange((_event, session) => {
       if (lifecycle === this.lifecycle) this.setSession(session);
     });
@@ -84,6 +96,10 @@ class AuthService {
   }
 
   private setSnapshot(snapshot: AuthSnapshot) {
+    if (snapshot.status !== 'initializing' && this.initializationTimer) {
+      clearTimeout(this.initializationTimer);
+      this.initializationTimer = null;
+    }
     this.snapshot = snapshot;
     this.listeners.forEach((listener) => listener(snapshot));
   }
