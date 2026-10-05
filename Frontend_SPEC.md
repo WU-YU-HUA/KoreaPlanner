@@ -236,7 +236,7 @@ export interface UserDirectoryService {
 - [x] Trip、Schedule、Co-Worker 與 Kakao UI/工作流程式已實作。
 - [x] 首頁提供「所有旅程 / 我的旅程」tabs，各有獨立搜尋欄。
 - [x] Trip Detail 日期顯示 `yyyy.MM.dd(weekday)`；修正 React StrictMode 下 Schedule dialog 被 cleanup 誤關。
-- [x] Schedule 提供 Kakao 與 Naver Map 外部連結；Naver web link 僅以 longitude/latitude 設定地圖中心，不用 Place 名稱搜尋。
+- [x] Schedule 提供 Kakao 與 Naver Map 外部連結；手機使用 Naver `nmap://place` 以座標/名稱標記地點，桌面 fallback 到只以座標置中的 Naver web map，不用 Place 名稱搜尋。
 - [x] PlacePicker 提供 Google Maps 完整 URL/Plus Code 座標解析與名稱確認；短網址和無座標 URL 會明確拒絕。
 - [x] Kakao keyword 零結果時嘗試 Kakao 地址 geocoder。
 - [ ] Kakao 本機 Places 搜尋需將 `http://localhost:5173` 加入 Kakao JavaScript SDK 網域；目前已確認未通過 CORS。

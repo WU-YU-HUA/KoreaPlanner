@@ -5,7 +5,7 @@ import type { CreateScheduleInput, Schedule, Trip, UpdateScheduleInput } from '.
 import { canManageSchedule } from '../domain/permissions';
 import { formatDate, isValidDate, sortSchedules } from '../domain/validation';
 import { getKakaoMapUrl } from '../services/kakaoLinks';
-import { getNaverMapUrl } from '../services/naverMapLinks';
+import { getNaverMapAndroidIntentUrl, getNaverMapAppUrl, getNaverMapUrl } from '../services/naverMapLinks';
 import { repositories } from '../services/repositories';
 import ScheduleFormDialog from '../components/ScheduleFormDialog';
 
@@ -47,6 +47,27 @@ export default function DailyPlannerPage() {
     [schedules, date],
   );
   const scheduleEditor = trip ? canManageSchedule(userId, trip) : false;
+
+  function openNaverMap(place: Schedule['place']) {
+    const appName = `${window.location.origin}${window.location.pathname}`;
+    const appUrl = getNaverMapAppUrl(place, appName);
+    const webUrl = getNaverMapUrl(place);
+    const userAgent = navigator.userAgent;
+
+    if (/Android/i.test(userAgent)) {
+      window.location.href = getNaverMapAndroidIntentUrl(place, appName);
+      return;
+    }
+    if (/iPhone|iPad|iPod/i.test(userAgent)) {
+      const startedAt = Date.now();
+      window.location.href = appUrl;
+      window.setTimeout(() => {
+        if (Date.now() - startedAt < 2200) window.location.href = webUrl;
+      }, 1500);
+      return;
+    }
+    window.open(webUrl, '_blank', 'noopener,noreferrer');
+  }
 
   async function saveSchedule(input: UpdateScheduleInput) {
     if (!trip) return;
@@ -104,7 +125,10 @@ export default function DailyPlannerPage() {
                 {schedule.comment && <p className="schedule-comment">{schedule.comment}</p>}
                 <div className="map-links">
                   <a href={getKakaoMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Kakao ↗</a>
-                  <a href={getNaverMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Naver ↗</a>
+                  <a href={getNaverMapUrl(schedule.place)} onClick={(event) => {
+                    event.preventDefault();
+                    openNaverMap(schedule.place);
+                  }} className="map-link">Naver ↗</a>
                 </div>
               </div>
               {scheduleEditor && <div className="schedule-actions">
