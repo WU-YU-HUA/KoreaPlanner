@@ -5,6 +5,7 @@ import type { CreateScheduleInput, Schedule, Trip, UpdateScheduleInput } from '.
 import { canManageSchedule } from '../domain/permissions';
 import { formatDate, isValidDate, sortSchedules } from '../domain/validation';
 import { getKakaoMapUrl } from '../services/kakaoLinks';
+import { getGoogleMapUrl } from '../services/googleMapLinks';
 import { getNaverMapAndroidIntentUrl, getNaverMapAppUrl, getNaverMapUrl } from '../services/naverMapLinks';
 import { repositories } from '../services/repositories';
 import ScheduleFormDialog from '../components/ScheduleFormDialog';
@@ -124,6 +125,7 @@ export default function DailyPlannerPage() {
                 <p className="schedule-place">{schedule.place.name}</p>
                 {schedule.comment && <p className="schedule-comment">{schedule.comment}</p>}
                 <div className="map-links">
+                  <a href={getGoogleMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Google ↗</a>
                   <a href={getKakaoMapUrl(schedule.place)} target="_blank" rel="noopener noreferrer" className="map-link">Kakao ↗</a>
                   <a href={getNaverMapUrl(schedule.place)} onClick={(event) => {
                     event.preventDefault();

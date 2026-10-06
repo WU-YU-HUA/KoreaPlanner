@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Coordinates } from '../domain/models';
 import { loadKakaoSdk, toKakaoLatLng, type KakaoMapInstance, type KakaoSdk } from '../services/kakaoSdk';
+import { createKakaoPointParser } from '../services/kakaoPointParser';
+import { canDisplayOnKakaoMap } from '../services/kakaoMapCoverage';
+
+const FALLBACK_CENTER = { latitude: 37.5665, longitude: 126.978 };
 
 export interface KakaoMapProps {
   center: Coordinates;
-  marker?: Coordinates;
+  marker?: Coordinates & { name?: string };
   onCenterChange?: (coordinates: Coordinates) => void;
   interactive?: boolean;
 }
@@ -12,7 +16,6 @@ export interface KakaoMapProps {
 export default function KakaoMap({ center, marker, onCenterChange, interactive = false }: KakaoMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<KakaoMapInstance | null>(null);
-  const markerRef = useRef<InstanceType<KakaoSdk['maps']['Marker']> | null>(null);
   const callbackRef = useRef(onCenterChange);
   const [sdk, setSdk] = useState<KakaoSdk | null>(null);
   const [error, setError] = useState('');
@@ -20,6 +23,7 @@ export default function KakaoMap({ center, marker, onCenterChange, interactive =
   callbackRef.current = onCenterChange;
 
   useEffect(() => {
+    setSdk(null);
     let mounted = true;
     let listener: ((event: { latLng: { getLat(): number; getLng(): number } }) => void) | undefined;
     let currentSdk: KakaoSdk | undefined;
@@ -28,7 +32,7 @@ export default function KakaoMap({ center, marker, onCenterChange, interactive =
       if (!mounted || !containerRef.current) return;
       currentSdk = loadedSdk;
       currentMap = new loadedSdk.maps.Map(containerRef.current, {
-        center: toKakaoLatLng(loadedSdk, center),
+        center: toKakaoLatLng(loadedSdk, canDisplayOnKakaoMap(center) ? center : FALLBACK_CENTER),
         level: 4,
       });
       mapRef.current = currentMap;
@@ -48,27 +52,25 @@ export default function KakaoMap({ center, marker, onCenterChange, interactive =
     return () => {
       mounted = false;
       if (currentSdk && currentMap && listener) currentSdk.maps.event.removeListener(currentMap, 'click', listener);
-      markerRef.current?.setMap(null);
-      markerRef.current = null;
       mapRef.current = null;
     };
   }, [interactive, retry]);
 
   useEffect(() => {
-    if (sdk && mapRef.current) mapRef.current.setCenter(toKakaoLatLng(sdk, center));
+    if (sdk && mapRef.current && canDisplayOnKakaoMap(center)) {
+      try { mapRef.current.setCenter(toKakaoLatLng(sdk, center)); } catch { /* Selection remains independent of map rendering. */ }
+    }
   }, [center, sdk]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!sdk || !map) return;
-    if (!marker) {
-      markerRef.current?.setMap(null);
-      markerRef.current = null;
-    } else if (markerRef.current) {
-      markerRef.current.setPosition(toKakaoLatLng(sdk, marker));
-    } else {
-      markerRef.current = new sdk.maps.Marker({ map, position: toKakaoLatLng(sdk, marker) });
-    }
+    if (!marker || !canDisplayOnKakaoMap(marker)) return;
+    const plotPoint = createKakaoPointParser(map, sdk);
+    try {
+      const point = plotPoint(marker.longitude, marker.latitude, marker.name ?? '地點');
+      return () => point.remove();
+    } catch { /* A map drawing failure must not prevent selecting or saving the place. */ }
   }, [marker, sdk]);
 
   return (

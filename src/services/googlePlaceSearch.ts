@@ -1,15 +1,19 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { requireSupabase } from './supabaseClient';
+import { parseSearchPlacesResponse, type ParsedGooglePlace } from './googlePlaceParser';
 
 // Google search content stays transient and is never converted to a persisted Kakao Place.
-export interface GoogleSearchResult {
-  placeId: string;
-  name: string;
-  address: string | null;
-  googleMapsUrl: string;
+export type { ParsedGooglePlace as GoogleSearchResult } from './googlePlaceParser';
+
+export function getGoogleMapsUrl(place: ParsedGooglePlace) {
+  const link = new URL('https://www.google.com/maps/search/');
+  link.searchParams.set('api', '1');
+  link.searchParams.set('query', place.name);
+  link.searchParams.set('query_place_id', place.placeId);
+  return link.toString();
 }
 
-export async function searchGooglePlaces(tripId: string, query: string, signal?: AbortSignal): Promise<GoogleSearchResult[]> {
+export async function searchGooglePlaces(tripId: string, query: string, signal?: AbortSignal): Promise<ParsedGooglePlace[]> {
   const normalized = query.trim();
   if (!normalized || normalized.length > 200) throw new Error('Google 搜尋文字須為 1 至 200 個字元。');
   const client = requireSupabase();
@@ -34,15 +38,5 @@ export async function searchGooglePlaces(tripId: string, query: string, signal?:
     }
     throw new Error('Google 搜尋暫時無法使用，請稍後重試；仍可使用 Kakao 搜尋。');
   }
-  if (!data || !Array.isArray(data.places)) throw new Error('Google 搜尋回應格式錯誤。');
-  return data.places.flatMap((place: unknown) => {
-    if (!place || typeof place !== 'object') return [];
-    const row = place as Record<string, unknown>;
-    if (typeof row.placeId !== 'string' || !row.placeId || typeof row.name !== 'string' || !row.name.trim()) return [];
-    const link = new URL('https://www.google.com/maps/search/');
-    link.searchParams.set('api', '1');
-    link.searchParams.set('query', row.name);
-    link.searchParams.set('query_place_id', row.placeId);
-    return [{ placeId: row.placeId, name: row.name, address: typeof row.address === 'string' ? row.address : null, googleMapsUrl: link.toString() }];
-  });
+  return parseSearchPlacesResponse(data);
 }

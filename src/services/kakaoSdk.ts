@@ -44,6 +44,7 @@ export interface KakaoSdk {
     LatLng: new (latitude: number, longitude: number) => KakaoLatLng;
     Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMapInstance;
     Marker: new (options: { map: KakaoMapInstance; position: KakaoLatLng }) => KakaoMarkerInstance;
+    CustomOverlay: new (options: { map: KakaoMapInstance; position: KakaoLatLng; content: HTMLElement; yAnchor: number }) => { setMap(map: KakaoMapInstance | null): void };
     event: {
       addListener(target: KakaoMapInstance, event: string, listener: (event: { latLng: KakaoLatLng }) => void): void;
       removeListener(target: KakaoMapInstance, event: string, listener: (event: { latLng: KakaoLatLng }) => void): void;

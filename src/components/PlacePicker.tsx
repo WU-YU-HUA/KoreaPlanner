@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Coordinates, Place } from '../domain/models';
 import { isValidCoordinates } from '../domain/validation';
 import { parseGoogleMapsUrl } from '../services/googleMapsUrl';
-import { kakaoPlaceSearchService } from '../services/kakaoPlaceSearch';
-import { searchWithTranslationFallback } from '../services/placeSearch';
-import { searchGooglePlaces, type GoogleSearchResult } from '../services/googlePlaceSearch';
+import { searchCombinedPlaces, type CombinedPlace } from '../services/combinedPlaceSearch';
+import { canDisplayOnKakaoMap } from '../services/kakaoMapCoverage';
 import KakaoMap from './KakaoMap';
 
 type PlaceMode = 'search' | 'googleMaps';
@@ -19,12 +18,10 @@ interface PlacePickerProps {
 const SEOUL: Coordinates = { latitude: 37.5665, longitude: 126.978 };
 
 export default function PlacePicker({ tripId, value, onConfirm, onSearchStateChange }: PlacePickerProps) {
-  const initialCoordinates = value ?? SEOUL;
+  const initialCoordinates = value && canDisplayOnKakaoMap(value) ? value : SEOUL;
   const [mode, setMode] = useState<PlaceMode>(value?.provider === 'manual' ? 'googleMaps' : 'search');
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Place[]>([]);
-  const [searchProvider, setSearchProvider] = useState<'kakao' | 'google'>('kakao');
-  const [googleResults, setGoogleResults] = useState<GoogleSearchResult[]>([]);
+  const [results, setResults] = useState<CombinedPlace[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
   const [center, setCenter] = useState<Coordinates>(initialCoordinates);
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
@@ -47,18 +44,10 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
     requestId.current += 1;
     googleRequest.current?.abort();
     setResults([]);
-    setGoogleResults([]);
     setSelected(null);
     setBusy(false);
     setError('');
     setHint('');
-  }
-
-  function changeProvider(provider: 'kakao' | 'google') {
-    if (provider === searchProvider) return;
-    resetSearch();
-    setSearchProvider(provider);
-    onConfirm(null);
   }
 
   function changeMode(nextMode: PlaceMode) {
@@ -80,29 +69,20 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
     setError('');
     setHint('');
     setResults([]);
-    setGoogleResults([]);
     setSelected(null);
     onConfirm(null);
     try {
-      if (searchProvider === 'google') {
-        const controller = new AbortController();
-        googleRequest.current = controller;
-        const places = await searchGooglePlaces(tripId, normalized, controller.signal);
-        if (request !== requestId.current) return;
-        setGoogleResults(places);
-        setHint(places.length ? `找到 ${places.length} 筆 Google 結果，可在 Google Maps 查看。` : 'Google 找不到搜尋結果，可換個關鍵字或切換 Kakao。');
-        return;
-      }
-      const result = await searchWithTranslationFallback(normalized, kakaoPlaceSearchService);
+      const controller = new AbortController();
+      googleRequest.current = controller;
+      const result = await searchCombinedPlaces(tripId, normalized, controller.signal);
       if (request !== requestId.current) return;
       setResults(result.places);
-      if (result.places.length) {
-        setSelected(result.places[0]);
-        setCenter(result.places[0]);
-        setHint(`${result.places.length} 筆結果，已預選第一筆；確認後才會加入行程。`);
-      } else {
-        setHint('找不到搜尋結果；尚未設定翻譯服務，可改用韓文搜尋或手動定位。');
-      }
+      const first = result.places[0];
+      if (first) selectPlace(first);
+      setError(result.errors.join(' '));
+      setHint(result.places.length
+        ? `${result.places.length} 筆結果，已預選第一筆；確認後才會加入行程。${first && !canDisplayOnKakaoMap(first) ? '此地點超出地圖顯示範圍，仍可選取。' : ''}`
+        : '找不到搜尋結果，請換個關鍵字重試。');
     } catch (searchError) {
       if (request === requestId.current) {
         setError(searchError instanceof Error ? searchError.message : '地點搜尋失敗，請重試。');
@@ -114,16 +94,18 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
 
   function selectPlace(place: Place) {
     setSelected(place);
-    setCenter(place);
+    if (canDisplayOnKakaoMap(place)) setCenter(place);
+    setHint(canDisplayOnKakaoMap(place) ? '確認後才會加入行程。' : '此地點超出地圖顯示範圍，仍可選取及確認，不顯示標記。');
     onConfirm(null);
   }
 
-  function placeKey(place: Place) {
-    return place.placeId ?? `${place.provider}:${place.latitude},${place.longitude}:${place.name}`;
+  function placeKey(place: CombinedPlace) {
+    return `${place.provider}:${place.placeId || `${place.latitude},${place.longitude}:${place.name}`}`;
   }
 
   function isSelected(place: Place) {
     if (!selected) return false;
+    if (place.provider !== selected.provider) return false;
     if (place.placeId && selected.placeId) return place.placeId === selected.placeId;
     return place.latitude === selected.latitude && place.longitude === selected.longitude;
   }
@@ -132,7 +114,7 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
     try {
       const coordinates = parseGoogleMapsUrl(googleMapsUrl);
       setGoogleCoordinates(coordinates);
-      setCenter(coordinates);
+      if (canDisplayOnKakaoMap(coordinates)) setCenter(coordinates);
       onConfirm(null);
       setError('');
       setHint('已讀取座標。確認地點名稱後，才會加入行程。');
@@ -175,17 +157,13 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
         <button type="button" aria-pressed={mode === 'search'} onClick={() => changeMode('search')}>搜尋地點</button>
         <button type="button" aria-pressed={mode === 'googleMaps'} onClick={() => changeMode('googleMaps')}>Google Maps</button>
       </div>
-      {(mode !== 'search' || searchProvider === 'kakao') && <KakaoMap
+      <KakaoMap
         center={center}
         marker={mode === 'googleMaps' ? googleCoordinates ?? (value?.provider === 'manual' ? value : undefined) : selected ?? undefined}
         interactive={false}
-      />}
+      />
       {mode === 'search' ? (
         <div className="place-search-panel">
-          <div className="segmented-control" role="group" aria-label="搜尋來源">
-            <button type="button" aria-pressed={searchProvider === 'kakao'} onClick={() => changeProvider('kakao')}>Kakao</button>
-            <button type="button" aria-pressed={searchProvider === 'google'} onClick={() => changeProvider('google')}>Google</button>
-          </div>
           <div className="lookup-row">
             <label className="visually-hidden" htmlFor="place-query">搜尋地點</label>
             <input
@@ -203,28 +181,13 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
                   void search();
                 }
               }}
-              placeholder={searchProvider === 'google' ? '輸入地點名稱（Google 搜尋）' : '輸入地點名稱（Kakao 搜尋）'}
+              placeholder="輸入地點名稱"
             />
             <button type="button" className="button button-secondary" onClick={() => void search()} disabled={busy || !query.trim()}>
               {busy ? '搜尋中…' : '搜尋'}
             </button>
           </div>
-          {searchProvider === 'google' && (
-            <section className="google-place-results" aria-label="Google 搜尋結果">
-              <span className="google-maps-attribution" translate="no">Google Maps</span>
-              <p className="field-message">Google 結果可在 Google Maps 查看；要加入目前行程，請使用 Kakao 搜尋或 Google Maps 網址定位。</p>
-              {googleResults.length > 0 && <ul className="place-results">
-                {googleResults.map((place) => <li key={place.placeId}>
-                  <a className="place-result google-place-link" href={place.googleMapsUrl} target="_blank" rel="noopener noreferrer">
-                    <strong>{place.name}</strong>
-                    {place.address && <span>{place.address}</span>}
-                    <span>在 Google Maps 開啟 ↗</span>
-                  </a>
-                </li>)}
-              </ul>}
-            </section>
-          )}
-          {searchProvider === 'kakao' && results.length > 0 && (
+          {results.length > 0 && (
             <ul className="place-results" aria-label="地點搜尋結果">
               {results.map((place) => (
                 <li key={placeKey(place)}>
@@ -235,16 +198,16 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
                     onClick={() => selectPlace(place)}
                   >
                     <strong>{place.name}</strong>
-                    <span>{place.roadAddress || place.address || place.category}</span>
+                    <span>{place.address}</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
           {selected && <p className="selected-place">已選擇：{selected.name}</p>}
-          {searchProvider === 'kakao' && <button type="button" className="button button-primary" onClick={confirmSearchResult} disabled={!selected || busy}>
+          <button type="button" className="button button-primary" onClick={confirmSearchResult} disabled={!selected || busy}>
             確認此地點
-          </button>}
+          </button>
         </div>
       ) : (
         <div className="manual-place-panel">
@@ -274,7 +237,8 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
           </button>
         </div>
       )}
-      {(error || hint) && <p className={error ? 'field-message error-message' : 'field-message'} role={error ? 'alert' : 'status'}>{error || hint}</p>}
+      {error && <p className="field-message error-message" role="alert">{error}</p>}
+      {hint && <p className="field-message" role="status">{hint}</p>}
       {value && <p className="confirmed-place"><span>已確認地點</span><strong>{value.name}</strong></p>}
     </fieldset>
   );

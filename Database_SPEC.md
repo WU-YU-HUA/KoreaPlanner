@@ -42,7 +42,7 @@ Trip 1:N Schedule。刪除 Trip 必須由 PostgreSQL ON DELETE CASCADE 自動刪
 
 ```ts
 interface Place {
-  provider: 'kakao' | 'manual';
+  provider: 'manual' | 'kakao' | 'naver' | 'google';
   placeId?: string;
   name: string;
   latitude: number;
@@ -103,7 +103,7 @@ begin
     return false;
   end if;
   if jsonb_typeof(p->'provider') is distinct from 'string'
-     or (p->>'provider') not in ('kakao', 'manual')
+     or (p->>'provider') not in ('manual', 'kakao', 'naver', 'google')
      or jsonb_typeof(p->'name') is distinct from 'string'
      or length(btrim(p->>'name')) = 0
      or jsonb_typeof(p->'latitude') is distinct from 'number'

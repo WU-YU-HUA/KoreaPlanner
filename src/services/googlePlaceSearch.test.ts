@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FunctionsHttpError } from '@supabase/supabase-js';
-import { searchGooglePlaces } from './googlePlaceSearch';
+import { getGoogleMapsUrl, searchGooglePlaces } from './googlePlaceSearch';
 
 const { getSession, invoke } = vi.hoisted(() => ({ getSession: vi.fn(), invoke: vi.fn() }));
 vi.mock('./supabaseClient', () => ({ requireSupabase: () => ({ auth: { getSession }, functions: { invoke } }) }));
@@ -16,9 +16,8 @@ describe('Google Places frontend integration', () => {
     const results = await searchGooglePlaces('trip-id', ' Cafe ');
     expect(invoke).toHaveBeenCalledWith('search-places', expect.objectContaining({ body: { tripId: 'trip-id', query: 'Cafe' }, headers: { Authorization: 'Bearer offline-session' }, timeout: 15000 }));
     expect(results).toHaveLength(1);
-    expect(results[0]).not.toHaveProperty('latitude');
-    expect(results[0]).not.toHaveProperty('provider');
-    const link = new URL(results[0].googleMapsUrl);
+    expect(results[0]).toEqual({ name: 'Cafe', address: 'Seoul', placeId: 'google-id', latitude: 37, provider: 'google', longitude: 127 });
+    const link = new URL(getGoogleMapsUrl(results[0]));
     expect(link.origin).toBe('https://www.google.com');
     expect(link.searchParams.get('query_place_id')).toBe('google-id');
   });

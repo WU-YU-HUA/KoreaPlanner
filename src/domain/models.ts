@@ -4,7 +4,7 @@ export interface Coordinates {
 }
 
 export interface Place extends Coordinates {
-  provider: 'kakao' | 'manual';
+  provider: 'manual' | 'kakao' | 'naver' | 'google';
   placeId?: string;
   name: string;
   address?: string;

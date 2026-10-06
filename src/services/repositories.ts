@@ -56,7 +56,7 @@ export function parsePlace(value: unknown): Place {
   const row = value as Record<string, unknown>;
   const latitude = row.latitude;
   const longitude = row.longitude;
-  if ((row.provider !== 'kakao' && row.provider !== 'manual') || typeof row.name !== 'string'
+  if ((row.provider !== 'manual' && row.provider !== 'kakao' && row.provider !== 'naver' && row.provider !== 'google') || typeof row.name !== 'string'
       || !row.name.trim() || typeof latitude !== 'number' || !Number.isFinite(latitude)
       || latitude < -90 || latitude > 90 || typeof longitude !== 'number'
       || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {

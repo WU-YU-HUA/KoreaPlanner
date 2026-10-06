@@ -42,4 +42,18 @@ Workflow `.github/workflows/deploy-pages.yml` 會在預設分支 push 時部署�
 
 Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plus Code，不呼叫 Google API，也不儲存 Google Maps URL/Place 資料。支援含 `@latitude,longitude`、`q=latitude,longitude`、`!3dlatitude!4dlongitude` 或 Plus Code 的完整網址；`maps.app.goo.gl` 等短網址不含座標時無法在純前端解析，請改貼 Google Maps 網址列中的完整網址。Kakao keyword 搜尋零結果時，會再使用 Kakao Maps SDK 的 address geocoder 查詢地址。
 
-「搜尋地點」內可切換 Kakao／Google 來源，兩者各自搜尋，一個服務失敗不影響另一個來源。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。Google 結果顯示名稱與地址，點擊在 Google Maps 開啟，不標在 Kakao 地圖上或存成行程 Place。Kakao 結果照常確認後加入行程。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。
+「搜尋地點」會同時搜尋 Kakao 與 Google，將兩個標準化陣列以 `kakaoResults.concat(googleResults)` 合併，在同一個可捲動清單顯示。清單只顯示名稱與地址，不標示來源；Kakao 結果在前、Google 結果在後；清單 key 包含 provider，以免跨來源相同 ID 衝突。一個服務失敗時仍顯示另一個的結果，另顯示失敗訊息；Kakao 等待上限為 15 秒。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。合併結果都可直接點擊選取，再按「確認此地點」加入行程，不開啟外部頁面。Place 支援 manual／kakao／naver／google。地圖顯示使用應用程式設定的韓國範圍（緯度 32–39、經度 124–132）；這不是官方精確涵蓋邊界，也不是全球有效座標範圍。範圍外地點仍可確認及儲存，只不移動地圖或畫標記；地圖畫點失敗不影響選取。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。
+
+## 經緯度標記函式
+
+`src/services/kakaoPointParser.ts` 可綁定已建立的 Kakao 地圖與 SDK，取得只接受 `(經度, 緯度, 名稱)` 的函式：
+
+```ts
+import { createKakaoPointParser } from './services/kakaoPointParser';
+
+const plotPoint = createKakaoPointParser(map, sdk);
+const point = plotPoint(126.978, 37.5665, '我的地點');
+// 需要移除時：point.remove();
+```
+
+呼叫後會移動地圖中心、畫出座標標記與純文字名稱標籤，不需搜尋對應地標。座標必須為有效數字，經度範圍 -180 至 180、緯度範圍 -90 至 90，名稱不可空白。每次呼叫新增一組標記；呼叫者可透過 `remove()` 移除。現有 `KakaoMap` 元件已使用此函式，更新座標或卸載時會清除舊標記與標籤。
