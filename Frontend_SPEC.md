@@ -86,13 +86,18 @@ export interface TranslationService {
 }
 ```
 
-1. 對 trim 後原始 query 呼叫 Kakao search。
-2. 若有結果，直接顯示，不自動翻譯。
-3. 只有成功搜尋但結果為空，才呼叫注入的 TranslationService，再用韓文搜尋。
-4. 網路／SDK／權限錯誤不是 empty result，顯示錯誤與重試，不自動翻譯。
-5. Translation provider 尚未指定：保留 interface 與 injection point，未配置時明確顯示「尚未設定翻譯服務」，允許改用韓文搜尋或 Google Maps URL 座標輸入；不要假造翻譯或寫死 provider。
+目前搜尋與顯示流程：
 
-每次成功搜尋預選第一筆，列表與地圖 marker 同步。選其他結果時 map center 跟著更新。新搜尋須清除舊的 confirmed place；正在搜尋時禁用確認，忽略過期 request 的結果。搜尋結果不得自動加入 Schedule，必須由使用者明確確認。
+1. `searchCombinedPlaces(tripId, query)` 對 trim 後 query 同時呼叫 Kakao 搜尋及 Google `search-places` Edge Function；Google 呼叫使用目前登入 session 與 Trip ID。
+2. Kakao 回應先經 `kakaoPlaceParser.ts` 的 `parseKakaoPlaces`；keyword 零結果時改查地址，經 `parseKakaoAddresses`。Google 回應先經 `googlePlaceParser.ts` 的 `parseSearchPlacesResponse`。
+3. 兩個 Parser 都輸出 `{ name, address, placeId, latitude, provider, longitude }[]`，座標為 number，provider 分別為 `kakao`／`google`。Parser 負責正規化及過濾無效資料，不畫地圖。Kakao 地址結果沒有 ID 時 placeId 為空字串。
+4. 將 `kakaoResults.concat(googleResults)` 放入 `PlacePicker` 同一個清單，顯示名稱與地址。key 與選取比對包含 provider；點擊結果直接選取，不開外部連結。一個來源失敗時仍顯示另一個來源的結果及錯誤訊息，不自動重試或翻譯。
+5. 選取後由 `KakaoMap` 檢查 `canDisplayOnKakaoMap`，再使用 `createKakaoPointParser(map, sdk)` 取得的獨立 `plotPoint(longitude, latitude, name)` 函式畫標記與文字名稱。搜尋 Parser 與標示函式分離。
+6. 應用程式地圖顯示範圍為緯度 32–39、經度 124–132。範圍外地點仍可選取、確認及儲存，只不移動地圖或畫點；畫點失敗也不阻擋選取。這個範圍不是全球有效座標限制。
+
+`TranslationService` 是預留介面，目前未配置或自動呼叫翻譯服務。
+
+每次成功搜尋預選第一筆；可顯示範圍內的選取結果會同步地圖 marker 與 center，範圍外仍保持選取。新搜尋須清除舊的 confirmed place；正在搜尋時禁用確認，忽略過期 request 的結果。搜尋結果不得自動加入 Schedule，必須由使用者明確確認。
 
 錯誤地點可以選其他結果、重新搜尋或切換 Google Maps。Kakao Places keyword 零結果時，再嘗試 Kakao 地址 Geocoder。Google Maps 模式只解析使用者貼上的 Google Maps URL 座標或完整 Plus Code，不呼叫 Google API、不保存 URL/Google Place 資料；需填入地點名稱並確認後建立 provider='manual' 的 Place。完整 URL 支援 `@lat,lng`、`q=lat,lng`、`!3dlat!4dlng` 與 Plus Code；不含座標的短網址須明確提示不可解析。沒有 placeId 也必須可儲存。SDK 不可用時顯示錯誤／重試，不得顯示假的地圖。
 
@@ -105,7 +110,7 @@ export interface KakaoMapProps {
 }
 ```
 
-KakaoMap 是純地圖 component。SDK script 集中載入，只有一個共享 loading promise，處理 loading / loaded / error 與重試，卸載 component 時清理 listener。adapter normalize place_id、place_name、address_name、road_address_name、category_name、x、y，UI 不得接收 raw response。
+KakaoMap 是純地圖 component。SDK script 集中載入，只有一個共享 loading promise，處理 loading / loaded / error 與重試，卸載 component 時清理 listener。外部 API 回應必須先經搜尋 Parser，UI 不得接收 raw response。地圖標示函式只接收經度、緯度、名稱；更新選取或卸載時清除舊標記與標籤。
 
 Kakao 外部連結由 utility 產生，不存 DB：有 placeId 開 Kakao Place；無 ID 使用座標開 Kakao Map，名稱需 URL encode。實作時查核 Kakao 官方支援的網址格式。外部新分頁使用 rel='noopener noreferrer'。
 

@@ -44,6 +44,26 @@ Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plu
 
 「搜尋地點」會同時搜尋 Kakao 與 Google，將兩個標準化陣列以 `kakaoResults.concat(googleResults)` 合併，在同一個可捲動清單顯示。清單只顯示名稱與地址，不標示來源；Kakao 結果在前、Google 結果在後；清單 key 包含 provider，以免跨來源相同 ID 衝突。一個服務失敗時仍顯示另一個的結果，另顯示失敗訊息；Kakao 等待上限為 15 秒。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。合併結果都可直接點擊選取，再按「確認此地點」加入行程，不開啟外部頁面。Place 支援 manual／kakao／naver／google。地圖顯示使用應用程式設定的韓國範圍（緯度 32–39、經度 124–132）；這不是官方精確涵蓋邊界，也不是全球有效座標範圍。範圍外地點仍可確認及儲存，只不移動地圖或畫標記；地圖畫點失敗不影響選取。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。
 
+## 外部搜尋資料與地圖顯示流程
+
+搜尋資料解析與地圖標示由不同函式負責：
+
+```text
+Kakao SDK → parseKakaoPlaces / parseKakaoAddresses ─┐
+                                                  ├→ searchCombinedPlaces → 合併清單
+Google search-places → parseSearchPlacesResponse ───┘
+合併清單 → 使用者選取 → KakaoMap → plotPoint(longitude, latitude, name)
+```
+
+兩個搜尋 Parser 都輸出相同欄位的陣列：
+
+```ts
+{ name, address, placeId, latitude, provider, longitude }[]
+// provider 為 'kakao' 或 'google'；latitude / longitude 為 number。
+```
+
+`src/services/kakaoPlaceParser.ts` 與 `src/services/googlePlaceParser.ts` 負責轉換欄位、檢查名稱／座標及過濾無效資料，不操作地圖。`src/services/combinedPlaceSearch.ts` 將兩個結果 concat；`PlacePicker` 顯示清單並處理選取。`KakaoMap` 先用 `canDisplayOnKakaoMap` 檢查顯示範圍，再呼叫下面的獨立標記函式。範圍外地點仍可選取及儲存。
+
 ## 經緯度標記函式
 
 `src/services/kakaoPointParser.ts` 可綁定已建立的 Kakao 地圖與 SDK，取得只接受 `(經度, 緯度, 名稱)` 的函式：

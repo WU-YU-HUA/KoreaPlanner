@@ -53,7 +53,7 @@ interface Place {
 }
 ```
 
-Place 是 adapter 正規化結果，禁止存完整 Kakao raw response。JSONB 內 key 使用 camelCase；不存 x/y、lat/lng 或產生的 deep-link URL。provider、name、latitude、longitude 必填；placeId 可省略或 NULL。optional 字串可省略／NULL。手動地點使用 provider='manual'，通常省略 placeId；不能要求一定有 Kakao ID。
+Place 是 Parser 正規化結果，禁止存完整 Kakao／Google raw response。搜尋 Parser 統一輸出 `{ name, address, placeId, latitude, provider, longitude }[]`，合併清單選取及確認後才轉成儲存用 Place；Parser 不操作地圖，地圖標示由獨立函式處理。JSONB 內 key 使用 camelCase；不存 x/y、lat/lng 或產生的 deep-link URL。provider、name、latitude、longitude 必填；placeId 可省略或 NULL。optional 字串可省略／NULL。手動地點使用 provider='manual'，通常省略 placeId；不能要求一定有 Kakao ID。地圖顯示範圍不作為資料庫拒絕有效經緯度的條件。
 
 ```json
 {
