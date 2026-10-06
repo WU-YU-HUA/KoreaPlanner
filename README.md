@@ -11,6 +11,10 @@
 
 目前 `.env` 與 `.env.local` 為本機既有設定，不會由專案範本覆寫。
 
+## API KEYs
+- KaKao JavaScript SDK: https://developers.kakao.com/console/app/1597786/config/platform-key/js/5772451
+- Supabase: https://supabase.com/dashboard/project/onuwbxczpmfbwehdqwap
+
 ## Google Auth 設定
 
 - Supabase Dashboard 的 Authentication > Providers 啟用 Google。
@@ -37,3 +41,5 @@ Workflow `.github/workflows/deploy-pages.yml` 會在預設分支 push 時部署�
 本機 Vite 預設 origin 為 `http://localhost:5173`；請將此 origin（不含 `/KoreaPlanner/` path）加入 Kakao Developers 的 JavaScript SDK 網域。若用 `127.0.0.1` 開啟，該 origin 也需另外加入。
 
 Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plus Code，不呼叫 Google API，也不儲存 Google Maps URL/Place 資料。支援含 `@latitude,longitude`、`q=latitude,longitude`、`!3dlatitude!4dlongitude` 或 Plus Code 的完整網址；`maps.app.goo.gl` 等短網址不含座標時無法在純前端解析，請改貼 Google Maps 網址列中的完整網址。Kakao keyword 搜尋零結果時，會再使用 Kakao Maps SDK 的 address geocoder 查詢地址。
+
+「搜尋地點」內可切換 Kakao／Google 來源，兩者各自搜尋，一個服務失敗不影響另一個來源。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。Google 結果顯示名稱與地址，點擊在 Google Maps 開啟，不標在 Kakao 地圖上或存成行程 Place。Kakao 結果照常確認後加入行程。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。

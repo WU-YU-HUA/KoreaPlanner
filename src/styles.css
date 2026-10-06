@@ -238,6 +238,10 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 .place-result strong { font-size: 13px; font-weight: 650; }
 .place-result span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .selected-place { margin: 0; color: var(--forest); font-size: 12px; }
+.google-place-results { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.google-maps-attribution { color: #5e5e5e; font-family: Roboto, sans-serif; font-style: normal; font-weight: 400; font-size: 14px; letter-spacing: normal; white-space: nowrap; }
+.google-place-link { text-decoration: none; }
+.google-place-link:focus-visible { outline: 2px solid var(--forest); outline-offset: -2px; }
 .confirmed-place { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; padding: 10px 12px; background: #e8eee8; color: #405648; font-size: 12px; }
 .conflict-warning { margin: 0; padding: 10px 12px; border-left: 3px solid #b87928; background: #f6efdf; color: #674a1f; font-size: 12px; line-height: 1.6; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }

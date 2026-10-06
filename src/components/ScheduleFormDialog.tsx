@@ -96,6 +96,7 @@ export default function ScheduleFormDialog({ trip, initialDate, schedule, schedu
         </div>
         <label>備註（選填）<textarea rows={3} value={comment} onChange={(event) => setComment(event.target.value)} /></label>
         <PlacePicker
+          tripId={trip.id}
           value={place}
           onConfirm={setPlace}
           onSearchStateChange={(mode, nextQuery) => {
