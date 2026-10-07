@@ -158,7 +158,7 @@ export default function DailyPlannerPage() {
           <p>{formatDate(date, { year: 'numeric' })} · {daySchedules.length} 個已加入地點</p>
           {dayPlaces.length === 0 && <p className="field-message">這天還沒有加入地點。</p>}
           {dayPlaces.length > validPlaceCount && <p className="field-message">{dayPlaces.length - validPlaceCount} 個地點缺少有效座標，無法顯示在地圖上。</p>}
-          <LeafletMap schedules={daySchedules} />
+          <LeafletMap schedules={daySchedules} showScheduleName />
           {validPlaceCount > 0 && <p className="field-message">紅色編號依行程時間排序；空心問號為待定行程。點擊可查看名稱與時間。</p>}
         </div>
       </Modal>}

@@ -331,3 +331,5 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 .schedule-map-popup-entry + .schedule-map-popup-entry { border-top: 1px solid #ddd; padding-top: 10px; }
 .schedule-map-popup-entry strong { font-size: 13px; }
 .schedule-map-popup-entry small { font-size: 11px; color: #666; }
+
+.schedule-map-popup-place { font-size: 12px; }

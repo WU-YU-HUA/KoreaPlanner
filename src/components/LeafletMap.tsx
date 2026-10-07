@@ -5,10 +5,10 @@ import type { Place, Schedule } from '../domain/models';
 import { isValidCoordinates } from '../domain/validation';
 import { buildScheduleMapMarkers } from '../services/scheduleMapMarkers';
 
-interface Props { marker?: Place; schedules?: Schedule[] }
+interface Props { marker?: Place; schedules?: Schedule[]; showScheduleName?: boolean }
 const NO_SCHEDULES: Schedule[] = [];
 
-export default function LeafletMap({ marker, schedules = NO_SCHEDULES }: Props) {
+export default function LeafletMap({ marker, schedules = NO_SCHEDULES, showScheduleName = false }: Props) {
   const scheduleMarkers = useMemo(() => buildScheduleMapMarkers(schedules), [schedules]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -55,10 +55,17 @@ export default function LeafletMap({ marker, schedules = NO_SCHEDULES }: Props) 
         const row = document.createElement('div');
         row.className = 'schedule-map-popup-entry';
         const name = document.createElement('strong');
-        name.textContent = `${entry.number ?? '?'} · ${entry.schedule.place.name}`;
+        name.textContent = showScheduleName ? entry.schedule.name : `${entry.number ?? '?'} · ${entry.schedule.place.name}`;
         const time = document.createElement('small');
         time.textContent = entry.time;
-        row.append(name, time);
+        row.append(name);
+        if (showScheduleName) {
+          const placeName = document.createElement('span');
+          placeName.className = 'schedule-map-popup-place';
+          placeName.textContent = entry.schedule.place.name;
+          row.append(placeName);
+        }
+        row.append(time);
         content.append(row);
       }
       const label = document.createElement('span');
@@ -72,7 +79,7 @@ export default function LeafletMap({ marker, schedules = NO_SCHEDULES }: Props) 
       L.marker([location.latitude, location.longitude], { icon, title }).bindPopup(content, { maxHeight: 150 }).addTo(group);
     }
     return () => { group.remove(); };
-  }, [scheduleMarkers, ready]);
+  }, [scheduleMarkers, showScheduleName, ready]);
 
   useEffect(() => {
     const map = mapRef.current;
