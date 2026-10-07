@@ -3,12 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../app/authContext';
 import type { CreateScheduleInput, Schedule, Trip, UpdateScheduleInput } from '../domain/models';
 import { canManageSchedule } from '../domain/permissions';
-import { formatDate, isValidDate, sortSchedules } from '../domain/validation';
+import { formatDate, isValidCoordinates, isValidDate, sortSchedules } from '../domain/validation';
 import { getKakaoMapUrl } from '../services/kakaoLinks';
 import { getGoogleMapUrl } from '../services/googleMapLinks';
 import { getNaverMapAndroidIntentUrl, getNaverMapAppUrl, getNaverMapUrl } from '../services/naverMapLinks';
 import { repositories } from '../services/repositories';
 import ScheduleFormDialog from '../components/ScheduleFormDialog';
+import LeafletMap from '../components/LeafletMap';
+import Modal from '../components/Modal';
 
 export default function DailyPlannerPage() {
   const { tripId = '', date = '' } = useParams();
@@ -18,12 +20,14 @@ export default function DailyPlannerPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showPlaces, setShowPlaces] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Schedule | undefined>();
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setShowPlaces(false);
     Promise.all([
       repositories.trip.getTrip(tripId),
       repositories.schedule.getSchedulesByTrip(tripId),
@@ -47,6 +51,8 @@ export default function DailyPlannerPage() {
     () => sortSchedules(schedules.filter((schedule) => schedule.date === date)),
     [schedules, date],
   );
+  const dayPlaces = useMemo(() => daySchedules.map(schedule => schedule.place), [daySchedules]);
+  const validPlaceCount = dayPlaces.filter(isValidCoordinates).length;
   const scheduleEditor = trip ? canManageSchedule(userId, trip) : false;
 
   function openNaverMap(place: Schedule['place']) {
@@ -104,10 +110,13 @@ export default function DailyPlannerPage() {
       <Link className="back-link" to={`/trips/${trip.id}`}>← {trip.name}</Link>
       <div className="page-heading daily-heading">
         <div><p className="eyebrow">DAILY PLANNER</p><h1>{formatDate(date, { year: 'numeric' })}</h1></div>
+        <div className="daily-heading-actions">
+          <button type="button" className="button button-secondary" onClick={() => setShowPlaces(true)}>目前地點</button>
         {scheduleEditor && <button type="button" className="button button-primary" onClick={() => {
           setEditing(undefined);
           setShowForm(true);
         }}>＋ 新增行程</button>}
+        </div>
       </div>
       {isGuest && <p className="read-only-note">訪客模式：可瀏覽行程，登入並取得旅程權限後才能修改。</p>}
       {!isGuest && !scheduleEditor && <p className="read-only-note">目前登入帳號不是此旅程的 Owner 或 Co-Worker，無法新增或修改行程。</p>}
@@ -144,6 +153,15 @@ export default function DailyPlannerPage() {
           ))}
         </ol>
       )}
+      {showPlaces && <Modal title="目前地點" onClose={() => setShowPlaces(false)} wide>
+        <div className="form-stack daily-places-map">
+          <p>{formatDate(date, { year: 'numeric' })} · {daySchedules.length} 個已加入地點</p>
+          {dayPlaces.length === 0 && <p className="field-message">這天還沒有加入地點。</p>}
+          {dayPlaces.length > validPlaceCount && <p className="field-message">{dayPlaces.length - validPlaceCount} 個地點缺少有效座標，無法顯示在地圖上。</p>}
+          <LeafletMap schedules={daySchedules} />
+          {validPlaceCount > 0 && <p className="field-message">紅色編號依行程時間排序；空心問號為待定行程。點擊可查看名稱與時間。</p>}
+        </div>
+      </Modal>}
       {showForm && <ScheduleFormDialog
         trip={trip}
         initialDate={date}

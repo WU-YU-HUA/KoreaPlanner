@@ -318,3 +318,16 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 @media (max-width: 720px) { .leaflet-map { height: 220px; } }
 
 .leaflet-schedule-marker { background: #c83232; }
+
+.daily-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.daily-heading-actions .button { white-space: nowrap; }
+.daily-places-map .leaflet-map { height: min(55vh, 480px); min-height: 280px; }
+@media (max-width: 720px) { .daily-heading { flex-wrap: wrap; gap: 16px; } }
+
+.leaflet-schedule-marker { display: grid; place-items: center; border-radius: 999px; color: #fff; font: 700 13px sans-serif; }
+.leaflet-schedule-marker.is-pending { border: 5px solid #c83232; background: #fff; color: #c83232; }
+.schedule-map-popup { display: grid; gap: 10px; }
+.schedule-map-popup-entry { display: grid; gap: 4px; }
+.schedule-map-popup-entry + .schedule-map-popup-entry { border-top: 1px solid #ddd; padding-top: 10px; }
+.schedule-map-popup-entry strong { font-size: 13px; }
+.schedule-map-popup-entry small { font-size: 11px; color: #666; }

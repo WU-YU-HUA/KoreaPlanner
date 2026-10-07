@@ -21,7 +21,7 @@ interface PlacePickerProps {
 const SEOUL: Coordinates = { latitude: 37.5665, longitude: 126.978 };
 
 export default function PlacePicker({ tripId, schedules, date, value, onConfirm, onSearchStateChange }: PlacePickerProps) {
-  const scheduledPlaces = useMemo(() => schedules.filter(schedule => schedule.tripId === tripId && schedule.date === date).map(schedule => schedule.place), [schedules, tripId, date]);
+  const daySchedules = useMemo(() => schedules.filter(schedule => schedule.tripId === tripId && schedule.date === date), [schedules, tripId, date]);
   const initialCoordinates = value && canDisplayOnKakaoMap(value) ? value : SEOUL;
   const [mode, setMode] = useState<PlaceMode>(value?.provider === 'manual' ? 'googleMaps' : 'search');
   const [query, setQuery] = useState('');
@@ -161,7 +161,7 @@ export default function PlacePicker({ tripId, schedules, date, value, onConfirm,
         <button type="button" aria-pressed={mode === 'search'} onClick={() => changeMode('search')}>搜尋地點</button>
         <button type="button" aria-pressed={mode === 'googleMaps'} onClick={() => changeMode('googleMaps')}>Google Maps</button>
       </div>
-      {mode === 'search' ? <LeafletMap marker={selected ?? undefined} scheduledPlaces={scheduledPlaces} /> : (
+      {mode === 'search' ? <LeafletMap marker={selected ?? undefined} schedules={daySchedules} /> : (
       <KakaoMap
         center={center}
         marker={mode === 'googleMaps' ? googleCoordinates ?? (value?.provider === 'manual' ? value : undefined) : selected ?? undefined}
