@@ -42,7 +42,7 @@ Workflow `.github/workflows/deploy-pages.yml` 會在預設分支 push 時部署�
 
 Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plus Code，不呼叫 Google API，也不儲存 Google Maps URL/Place 資料。支援含 `@latitude,longitude`、`q=latitude,longitude`、`!3dlatitude!4dlongitude` 或 Plus Code 的完整網址；`maps.app.goo.gl` 等短網址不含座標時無法在純前端解析，請改貼 Google Maps 網址列中的完整網址。Kakao keyword 搜尋零結果時，會再使用 Kakao Maps SDK 的 address geocoder 查詢地址。
 
-「搜尋地點」會同時搜尋 Kakao 與 Google，將兩個標準化陣列以 `kakaoResults.concat(googleResults)` 合併，在同一個可捲動清單顯示。清單只顯示名稱與地址，不標示來源；Kakao 結果在前、Google 結果在後；清單 key 包含 provider，以免跨來源相同 ID 衝突。一個服務失敗時仍顯示另一個的結果，另顯示失敗訊息；Kakao 等待上限為 15 秒。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。合併結果都可直接點擊選取，再按「確認此地點」加入行程，不開啟外部頁面。Place 支援 manual／kakao／naver／google。地圖顯示使用應用程式設定的韓國範圍（緯度 32–39、經度 124–132）；這不是官方精確涵蓋邊界，也不是全球有效座標範圍。範圍外地點仍可確認及儲存，只不移動地圖或畫標記；地圖畫點失敗不影響選取。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。
+「搜尋地點」會同時搜尋 Kakao 與 Google，將兩個標準化陣列以 `kakaoResults.concat(googleResults)` 合併，在同一個可捲動清單顯示。清單只顯示名稱與地址，不標示來源；Kakao 結果在前、Google 結果在後；清單 key 包含 provider，以免跨來源相同 ID 衝突。一個服務失敗時仍顯示另一個的結果，另顯示失敗訊息；Kakao 等待上限為 15 秒。Google 使用目前 Supabase Google 登入 session 與 Trip ID 呼叫 `search-places`，需要 Trip Owner／Co-Worker 權限；每次允許的搜尋消耗一筆 Google quota。合併結果都可直接點擊選取，再按「確認此地點」加入行程，不開啟外部頁面。Place 支援 manual／kakao／naver／google。「搜尋地點」Tab 使用 Leaflet＋OpenStreetMap 全球底圖，表單目前日期的 Schedule 地點以紅色標記顯示，當次列表選取以灰色標記顯示；所有來源（包含 Google）的有效座標結果均依列表點擊更新標記與地圖中心；選取及確認儲存流程維持原樣。Google Maps 網址貼上／解析 Tab 維持原本 Kakao 地圖與韓國顯示範圍；地圖畫點失敗不影響選取。Google quota／登入／權限錯誤會顯示對應訊息，不自動重試。Google API key 只放在 Edge Function secret，不放前端。詳細設定及測試見 `supabase/functions/search-places/README.md`。
 
 ## 外部搜尋資料與地圖顯示流程
 
@@ -52,7 +52,7 @@ Schedule 的 Google Maps 輸入只解析完整網址中可見的經緯度或 Plu
 Kakao SDK → parseKakaoPlaces / parseKakaoAddresses ─┐
                                                   ├→ searchCombinedPlaces → 合併清單
 Google search-places → parseSearchPlacesResponse ───┘
-合併清單 → 使用者選取 → KakaoMap → plotPoint(longitude, latitude, name)
+合併清單 → 使用者選取 → LeafletMap → 更新灰色選取標記（所有來源），保留當日紅色行程標記
 ```
 
 兩個搜尋 Parser 都輸出相同欄位的陣列：
@@ -62,7 +62,7 @@ Google search-places → parseSearchPlacesResponse ───┘
 // provider 為 'kakao' 或 'google'；latitude / longitude 為 number。
 ```
 
-`src/services/kakaoPlaceParser.ts` 與 `src/services/googlePlaceParser.ts` 負責轉換欄位、檢查名稱／座標及過濾無效資料，不操作地圖。`src/services/combinedPlaceSearch.ts` 將兩個結果 concat；`PlacePicker` 顯示清單並處理選取。`KakaoMap` 先用 `canDisplayOnKakaoMap` 檢查顯示範圍，再呼叫下面的獨立標記函式。範圍外地點仍可選取及儲存。
+`src/services/kakaoPlaceParser.ts` 與 `src/services/googlePlaceParser.ts` 負責轉換欄位、檢查名稱／座標及過濾無效資料，不操作地圖。`src/services/combinedPlaceSearch.ts` 將兩個結果 concat；`PlacePicker` 顯示清單並處理選取。搜尋 Tab 的 `LeafletMap` 檢查全球有效座標，替換舊標記並以文字 popup 顯示名稱；ResizeObserver 與 visibilitychange 處理尺寸恢復，卸載清除 map／事件／標記，不請求定位。Leaflet CSS 由元件載入，桌面高度 260px、手機 220px，保留 © OpenStreetMap contributors。網址解析 Tab 的 `KakaoMap` 先用 `canDisplayOnKakaoMap` 檢查顯示範圍，再呼叫下面的獨立標記函式。範圍外地點仍可選取及儲存。
 
 ## 經緯度標記函式
 
@@ -77,3 +77,13 @@ const point = plotPoint(126.978, 37.5665, '我的地點');
 ```
 
 呼叫後會移動地圖中心、畫出座標標記與純文字名稱標籤，不需搜尋對應地標。座標必須為有效數字，經度範圍 -180 至 180、緯度範圍 -90 至 90，名稱不可空白。每次呼叫新增一組標記；呼叫者可透過 `remove()` 移除。現有 `KakaoMap` 元件已使用此函式，更新座標或卸載時會清除舊標記與標籤。
+
+## Google Places 與非 Google 地圖的限制
+
+本次僅更換搜尋 Tab 的地圖，不修改 Search、Parser、Schedule 儲存、權限或歷史資料。依使用者要求，所有來源的有效座標結果皆可在 Leaflet 畫點與置中，包括 Google Places API 結果；下列條款限制仍存在，此實作不代表取得跨底圖授權。
+
+- [Service Specific Terms](https://cloud.google.com/maps-platform/terms/maps-service-terms)（非 EEA 帳單地址適用）：§14.1 允許沒有 Google 地圖的應用使用 Places 資料，§14.2 仍禁止搭配非 Google 地圖；§14.3 僅允許經緯度暫存最多 30 天。§15.1 的非 Google 地圖例外適用於 Places UI Kit，本專案現有的 Places API 搜尋及 Parser 不屬於該產品，不能直接套用例外。EEA 帳單地址有另一份條款，未檢查帳戶帳單地址。
+- [Places API policies](https://developers.google.com/maps/documentation/places/web-service/policies)：在地圖顯示 API 結果須使用 Google Map；資料保存與無 Google Map 時的 attribution 另有要求。這些限制獨立列出，不以改 Parser、停用儲存或改歷史資料處理。
+- [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/)：標準 HTTPS 圖磚只按視窗載入，不預載或離線下載，保留 attribution 與瀏覽器預設快取／Referer。
+
+搜尋地圖接收表單目前 Trip／日期的 Schedule 地點；僅讀取既有資料，不改儲存或權限。紅色行程標記與灰色搜尋標記使用獨立圖層／生命週期；範圍涵蓋全部有效標記，日期切換更新紅點，無效座標跳過。同位置重疊時灰色選取點在上層、紅色外圈仍可見。

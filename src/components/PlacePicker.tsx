@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Coordinates, Place } from '../domain/models';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Coordinates, Place, Schedule } from '../domain/models';
 import { isValidCoordinates } from '../domain/validation';
 import { parseGoogleMapsUrl } from '../services/googleMapsUrl';
 import { searchCombinedPlaces, type CombinedPlace } from '../services/combinedPlaceSearch';
 import { canDisplayOnKakaoMap } from '../services/kakaoMapCoverage';
 import KakaoMap from './KakaoMap';
+import LeafletMap from './LeafletMap';
 
 type PlaceMode = 'search' | 'googleMaps';
 
 interface PlacePickerProps {
   tripId: string;
+  schedules: Schedule[];
+  date: string;
   value: Place | null;
   onConfirm(place: Place | null): void;
   onSearchStateChange(mode: PlaceMode, query: string): void;
@@ -17,7 +20,8 @@ interface PlacePickerProps {
 
 const SEOUL: Coordinates = { latitude: 37.5665, longitude: 126.978 };
 
-export default function PlacePicker({ tripId, value, onConfirm, onSearchStateChange }: PlacePickerProps) {
+export default function PlacePicker({ tripId, schedules, date, value, onConfirm, onSearchStateChange }: PlacePickerProps) {
+  const scheduledPlaces = useMemo(() => schedules.filter(schedule => schedule.tripId === tripId && schedule.date === date).map(schedule => schedule.place), [schedules, tripId, date]);
   const initialCoordinates = value && canDisplayOnKakaoMap(value) ? value : SEOUL;
   const [mode, setMode] = useState<PlaceMode>(value?.provider === 'manual' ? 'googleMaps' : 'search');
   const [query, setQuery] = useState('');
@@ -81,7 +85,7 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
       if (first) selectPlace(first);
       setError(result.errors.join(' '));
       setHint(result.places.length
-        ? `${result.places.length} 筆結果，已預選第一筆；確認後才會加入行程。${first && !canDisplayOnKakaoMap(first) ? '此地點超出地圖顯示範圍，仍可選取。' : ''}`
+        ? `${result.places.length} 筆結果，已預選第一筆；確認後才會加入行程。${first && !isValidCoordinates(first) ? '此地點座標無效，仍可選取。' : ''}`
         : '找不到搜尋結果，請換個關鍵字重試。');
     } catch (searchError) {
       if (request === requestId.current) {
@@ -95,7 +99,7 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
   function selectPlace(place: Place) {
     setSelected(place);
     if (canDisplayOnKakaoMap(place)) setCenter(place);
-    setHint(canDisplayOnKakaoMap(place) ? '確認後才會加入行程。' : '此地點超出地圖顯示範圍，仍可選取及確認，不顯示標記。');
+    setHint(isValidCoordinates(place) ? '確認後才會加入行程。' : '此地點座標無效，仍可選取及確認，不顯示標記。');
     onConfirm(null);
   }
 
@@ -157,11 +161,13 @@ export default function PlacePicker({ tripId, value, onConfirm, onSearchStateCha
         <button type="button" aria-pressed={mode === 'search'} onClick={() => changeMode('search')}>搜尋地點</button>
         <button type="button" aria-pressed={mode === 'googleMaps'} onClick={() => changeMode('googleMaps')}>Google Maps</button>
       </div>
+      {mode === 'search' ? <LeafletMap marker={selected ?? undefined} scheduledPlaces={scheduledPlaces} /> : (
       <KakaoMap
         center={center}
         marker={mode === 'googleMaps' ? googleCoordinates ?? (value?.provider === 'manual' ? value : undefined) : selected ?? undefined}
         interactive={false}
       />
+      )}
       {mode === 'search' ? (
         <div className="place-search-panel">
           <div className="lookup-row">

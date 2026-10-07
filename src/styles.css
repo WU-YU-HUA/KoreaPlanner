@@ -310,3 +310,11 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+.leaflet-map-frame { height: auto; }
+.leaflet-map { width: 100%; height: 260px; z-index: 0; }
+.leaflet-place-marker { border: 2px solid white; border-radius: 50%; background: #777; box-shadow: 0 1px 5px #555; }
+.leaflet-map-status { position: absolute; top: 0; left: 48px; right: 8px; z-index: 500; padding: 8px; background: #fff; font-size: 12px; }
+@media (max-width: 720px) { .leaflet-map { height: 220px; } }
+
+.leaflet-schedule-marker { background: #c83232; }
