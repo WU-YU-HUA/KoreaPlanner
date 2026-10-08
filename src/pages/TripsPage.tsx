@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../app/authContext';
 import type { CreateTripInput, Trip } from '../domain/models';
 import { canManageTrip } from '../domain/permissions';
-import { formatDate } from '../domain/validation';
+import { formatDate, localToday } from '../domain/validation';
+import { sortMyTrips } from '../domain/trips';
 import { repositories } from '../services/repositories';
 import TripFormDialog from '../components/TripFormDialog';
 
@@ -70,9 +71,12 @@ export default function TripsPage() {
     setShowForm(true);
   }
 
+  const today = localToday();
   const myTrips = useMemo(
-    () => userId ? trips.filter((trip) => trip.ownerId === userId || trip.coWorkerIds.includes(userId)) : [],
-    [trips, userId],
+    () => userId ? sortMyTrips(
+      trips.filter((trip) => trip.ownerId === userId || trip.coWorkerIds.includes(userId)), today,
+    ) : [],
+    [trips, userId, today],
   );
 
   function searchTrips(source: Trip[], query: string) {
