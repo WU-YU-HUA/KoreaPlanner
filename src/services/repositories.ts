@@ -189,6 +189,30 @@ export class SupabaseTripRepository implements TripRepository {
   }
 }
 
+export class SupabaseTripFavoriteRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async getTripIds(userId: string): Promise<string[]> {
+    const { data, error } = await this.client.from('trip_favorites').select('trip_id').eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('trip_id', { ascending: true });
+    throwIfError(error);
+    return (data ?? []).map((row) => String(row.trip_id));
+  }
+
+  async add(userId: string, tripId: string) {
+    const { error } = await this.client.from('trip_favorites').upsert(
+      { user_id: userId, trip_id: tripId }, { onConflict: 'user_id,trip_id', ignoreDuplicates: true },
+    );
+    throwIfError(error);
+  }
+
+  async remove(userId: string, tripId: string) {
+    const { error } = await this.client.from('trip_favorites').delete()
+      .eq('user_id', userId).eq('trip_id', tripId);
+    throwIfError(error);
+  }
+}
+
 export class SupabaseScheduleRepository implements ScheduleRepository {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -273,6 +297,9 @@ export class SupabaseExpenseRepository implements ExpenseRepository {
 }
 
 export const repositories = {
+  get favorite() {
+    return new SupabaseTripFavoriteRepository(requireSupabase());
+  },
   get trip() {
     return new SupabaseTripRepository(requireSupabase());
   },

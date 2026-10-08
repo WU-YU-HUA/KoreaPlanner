@@ -172,6 +172,9 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
 .trip-actions, .schedule-actions { display: flex; align-items: center; gap: 8px; }
 .icon-button { min-height: 36px; padding: 0 9px; border: 0; background: transparent; color: #58645b; font-size: 13px; cursor: pointer; }
 .icon-button:hover { background: #eceee9; color: var(--forest); }
+.trip-favorite-button { white-space: nowrap; }
+.trip-favorite-button[aria-pressed="true"] { color: var(--forest); }
+.trip-favorite-button:disabled { opacity: 0.5; cursor: wait; }
 .danger-text { color: var(--danger) !important; }
 .empty-state { padding: 74px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .empty-state h2 { margin: 12px 0 6px; color: var(--forest); font-size: 22px; font-weight: 650; }
@@ -293,6 +296,7 @@ button:focus-visible { outline: 3px solid #bd542f; outline-offset: 3px; }
   .trip-tabs { gap: 0; }
   .trip-tabs button { flex: 1; justify-content: center; padding: 0 8px; font-size: 13px; }
   .trip-actions { gap: 0; }
+  .trip-row .trip-actions { flex-direction: column; align-items: flex-end; }
   .trip-main-link h2 { font-size: 19px; }
   .trip-overview { flex-direction: column; }
   .schedule-row { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px 12px; }

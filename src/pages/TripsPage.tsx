@@ -4,9 +4,11 @@ import { useAuth } from '../app/authContext';
 import type { CreateTripInput, Trip } from '../domain/models';
 import { canManageTrip } from '../domain/permissions';
 import { formatDate, localToday } from '../domain/validation';
-import { sortMyTrips } from '../domain/trips';
+import { getFavoriteTrips, sortMyTrips } from '../domain/trips';
 import { repositories } from '../services/repositories';
 import TripFormDialog from '../components/TripFormDialog';
+import TripFavoriteButton from '../components/TripFavoriteButton';
+import { useTripFavorites } from '../services/useTripFavorites';
 
 export default function TripsPage() {
   const { snapshot, isGuest } = useAuth();
@@ -19,7 +21,9 @@ export default function TripsPage() {
   const [reload, setReload] = useState(0);
   const [allSearch, setAllSearch] = useState('');
   const [mySearch, setMySearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'mine'>('all');
+  const [favoriteSearch, setFavoriteSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'mine' | 'favorites'>('all');
+  const favorites = useTripFavorites(userId);
 
   useEffect(() => {
     let active = true;
@@ -94,6 +98,9 @@ export default function TripsPage() {
   const allSearchResults = useMemo(() => searchTrips(trips, allSearch), [trips, allSearch]);
   const mySearchResults = useMemo(() => searchTrips(myTrips, mySearch), [myTrips, mySearch]);
 
+  const favoriteTrips = useMemo(() => getFavoriteTrips(trips, favorites.ids), [trips, favorites.ids]);
+  const favoriteSearchResults = useMemo(() => searchTrips(favoriteTrips, favoriteSearch), [favoriteTrips, favoriteSearch]);
+
   function renderTripRows(results: Trip[]) {
     return results.map((trip) => (
       <article className="trip-row" key={trip.id}>
@@ -102,10 +109,13 @@ export default function TripsPage() {
           <h2>{trip.name}</h2>
           <span className="trip-meta">可編輯行程：{trip.coWorkerIds.length + 1} 人</span>
         </Link>
-        {canManageTrip(userId, trip) && (
+        {userId && (
           <div className="trip-actions">
-            <button type="button" className="icon-button" aria-label={`編輯 ${trip.name}`} onClick={() => openEdit(trip)}>編輯</button>
-            <button type="button" className="icon-button danger-text" aria-label={`刪除 ${trip.name}`} onClick={() => void deleteTrip(trip)}>刪除</button>
+            <TripFavoriteButton tripId={trip.id} tripName={trip.name} favorites={favorites} />
+            {canManageTrip(userId, trip) && <>
+              <button type="button" className="icon-button" aria-label={`編輯 ${trip.name}`} onClick={() => openEdit(trip)}>編輯</button>
+              <button type="button" className="icon-button danger-text" aria-label={`刪除 ${trip.name}`} onClick={() => void deleteTrip(trip)}>刪除</button>
+            </>}
           </div>
         )}
       </article>
@@ -119,9 +129,11 @@ export default function TripsPage() {
   function handleTabKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
-    const nextTab = event.key === 'Home' ? 'all'
-      : event.key === 'End' ? 'mine'
-        : activeTab === 'all' ? 'mine' : 'all';
+    const tabs = ['all', 'mine', 'favorites'] as const;
+    const index = tabs.indexOf(activeTab);
+    const nextTab = event.key === 'Home' ? tabs[0]
+      : event.key === 'End' ? tabs[2]
+        : tabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
     setActiveTab(nextTab);
     document.getElementById(`${nextTab}-trips-tab`)?.focus();
   }
@@ -137,6 +149,7 @@ export default function TripsPage() {
       </div>
       {isGuest && <p className="read-only-note">訪客模式：可瀏覽旅程，登入後才能建立或修改。</p>}
       {error && <p className="notice notice-error" role="alert">{error}</p>}
+      {favorites.error && <p className="notice notice-error" role="alert">{favorites.error} <button type="button" className="icon-button" onClick={favorites.retry}>重新載入收藏</button></p>}
       <div className="trip-tabs" role="tablist" aria-label="旅程分類" onKeyDown={handleTabKeyDown}>
         <button
           id="all-trips-tab"
@@ -156,9 +169,14 @@ export default function TripsPage() {
           tabIndex={activeTab === 'mine' ? 0 : -1}
           onClick={() => setActiveTab('mine')}
         >我的旅程 <span className="tab-count">{myTrips.length}</span></button>
+        <button
+          id="favorites-trips-tab" type="button" role="tab"
+          aria-selected={activeTab === 'favorites'} aria-controls="trip-list-panel"
+          tabIndex={activeTab === 'favorites' ? 0 : -1} onClick={() => setActiveTab('favorites')}
+        >收藏旅程 <span className="tab-count">{favoriteTrips.length}</span></button>
       </div>
       <section id="trip-list-panel" className="trip-tabpanel" role="tabpanel"
-        aria-labelledby={activeTab === 'all' ? 'all-trips-tab' : 'mine-trips-tab'} tabIndex={0}>
+        aria-labelledby={`${activeTab}-trips-tab`} tabIndex={0}>
         {activeTab === 'all' ? (
           <>
             <label className="trip-search">
@@ -170,7 +188,7 @@ export default function TripsPage() {
               : allSearchResults.length ? <div className="trip-list" aria-label="所有旅程列表">{renderTripRows(allSearchResults)}</div>
                 : renderEmptyResult(allSearch, trips.length ? '目前沒有旅程。' : '目前沒有可瀏覽的旅程。')}
           </>
-        ) : (
+        ) : activeTab === 'mine' ? (
           <>
             <label className="trip-search">
               <span aria-hidden="true">⌕</span>
@@ -180,6 +198,18 @@ export default function TripsPage() {
             {loading ? <p className="loading-state" role="status">正在載入旅程…</p>
               : mySearchResults.length ? <div className="trip-list" aria-label="我的旅程列表">{renderTripRows(mySearchResults)}</div>
                 : renderEmptyResult(mySearch, userId ? '你尚未建立或加入旅程。' : '登入後可查看你擁有或協作的旅程。')}
+          </>
+        ) : (
+          <>
+            <label className="trip-search">
+              <span aria-hidden="true">⌕</span>
+              <span className="visually-hidden">搜尋收藏旅程</span>
+              <input type="search" value={favoriteSearch} onChange={(event) => setFavoriteSearch(event.target.value)} placeholder="搜尋旅程名稱或日期" />
+            </label>
+            {loading || favorites.loading ? <p className="loading-state" role="status">正在載入收藏旅程…</p>
+              : userId && !favorites.ready ? <p className="filtered-empty">無法讀取收藏，請重新載入收藏。</p>
+                : favoriteSearchResults.length ? <div className="trip-list" aria-label="收藏旅程列表">{renderTripRows(favoriteSearchResults)}</div>
+                  : renderEmptyResult(favoriteSearch, userId ? '尚未收藏旅程，點選旅程旁的星號即可收藏。' : '登入後可收藏旅程。')}
           </>
         )}
       </section>

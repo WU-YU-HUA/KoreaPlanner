@@ -7,11 +7,14 @@ import { formatDate, formatTripDay, getTripDates } from '../domain/validation';
 import { repositories } from '../services/repositories';
 import TripFormDialog from '../components/TripFormDialog';
 import BillingPanel from '../components/BillingPanel';
+import TripFavoriteButton from '../components/TripFavoriteButton';
+import { useTripFavorites } from '../services/useTripFavorites';
 
 export default function TripDetailPage() {
   const { tripId = '' } = useParams();
   const { snapshot } = useAuth();
   const userId = snapshot.status === 'signedIn' ? snapshot.session.user.id : undefined;
+  const favorites = useTripFavorites(userId);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,6 +62,7 @@ export default function TripDetailPage() {
     <main className="page-content">
       <Link className="back-link" to="/">← 所有旅程</Link>
       {error && <p className="notice notice-error" role="alert">{error}</p>}
+      {favorites.error && <p className="notice notice-error" role="alert">{favorites.error} <button type="button" className="icon-button" onClick={favorites.retry}>重新載入收藏</button></p>}
       <section className="trip-overview">
         <div>
           <p className="eyebrow">TRIP DETAIL</p>
@@ -66,7 +70,10 @@ export default function TripDetailPage() {
           <p className="date-range">{formatDate(trip.startDate)} — {formatDate(trip.endDate)}</p>
           <p className="trip-meta">{trip.coWorkerIds.length} 位 Co-Worker</p>
         </div>
-        {owner && <button type="button" className="button button-secondary" onClick={() => setShowEdit(true)}>編輯旅程</button>}
+        {userId && <div className="trip-actions">
+          <TripFavoriteButton tripId={trip.id} tripName={trip.name} favorites={favorites} />
+          {owner && <button type="button" className="button button-secondary" onClick={() => setShowEdit(true)}>編輯旅程</button>}
+        </div>}
       </section>
       <div className="trip-detail-tabs" role="tablist" aria-label="旅程內容">
         <button type="button" role="tab" aria-selected={activeTab === 'itinerary'} onClick={() => setActiveTab('itinerary')}>行程</button>

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { sortMyTrips } from './trips';
+import { getFavoriteTrips, sortMyTrips } from './trips';
+
+describe('getFavoriteTrips', () => {
+  it('uses favorite mapping order instead of the original trip order and skips deleted trips', () => {
+    const trips = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    expect(getFavoriteTrips(trips, new Set(['c', 'deleted', 'a']))).toEqual([trips[2], trips[0]]);
+    expect(trips.map((trip) => trip.id)).toEqual(['a', 'b', 'c']);
+    expect(getFavoriteTrips(trips, new Set())).toEqual([]);
+  });
+});
 
 describe('sortMyTrips', () => {
   it('orders ongoing and upcoming trips by start date, then ended trips by most recent end date', () => {

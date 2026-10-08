@@ -32,6 +32,12 @@
 
 Supabase migration 位於 `supabase/migrations/`。套用 migrations、連接遠端 project、部署和 Trip/Schedule/Kakao 功能皆不會由本機啟動流程自動執行。
 
+## 收藏旅程
+
+登入後可在旅程列表或旅程詳細頁點選星號收藏／取消收藏。「收藏旅程」分頁支援名稱與日期搜尋，依收藏紀錄的 `created_at` 由新到舊排列，最近收藏的在最前面；點擊旅程開啟原本的完整旅程行程頁。收藏不增加編輯權限。
+
+啟用前需先套用 `supabase/migrations/20261008075534_add_trip_favorites.sql`，再部署前端。該 migration 建立 `trip_favorites`，以 `(user_id, trip_id)` 避免重複收藏，RLS 限制使用者只能讀取及新增／刪除自己的收藏。旅程或使用者刪除時，外鍵會自動清除對應收藏紀錄。遠端套用與部署須另外取得明確授權。
+
 ## GitHub Pages
 
 Workflow `.github/workflows/deploy-pages.yml` 會在預設分支 push 時部署；可在 Actions 手動執行 `Deploy Korea Planner to GitHub Pages`。Repository Settings > Pages 的 Build and deployment source 設為 GitHub Actions，並在 Repository Settings > Secrets and variables > Actions 設定 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`VITE_KAKAO_JAVASCRIPT_KEY`。
